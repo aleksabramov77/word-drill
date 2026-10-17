@@ -193,6 +193,64 @@ describe("вход через Google", () => {
     );
   });
 
+  it("одобрять может только админ из браузера: не по токену, не без JSON, не другой пользователь", async () => {
+    const google = fakeGoogle();
+    const { app, db } = createTestApp({ auth, identity: google });
+    const admin = { headers: { Cookie: cookies(await login(app)) } };
+    const body = JSON.stringify({ email: "x@gmail.com", status: "approved" });
+
+    // Личный токен — даже админа — в админку не пускает.
+    const { createApiToken } = await import("./tokens.ts");
+    const adminToken = createApiToken(db, "google:123", new Date());
+    const byToken = await app.request("/api/admin/access", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body,
+    });
+    expect(byToken.status).toBe(403);
+
+    // Форма/текст вместо JSON (так шлёт чужой сайт без CORS) — отказ.
+    const asForm = await app.request("/api/admin/access", {
+      method: "POST",
+      headers: { ...admin.headers, "Content-Type": "text/plain" },
+      body,
+    });
+    expect(asForm.status).toBe(415);
+
+    // Одобренный не-админ со своей сессией и своим токеном — 403.
+    google.identify = async () => ({
+      sub: "555",
+      email: "user@gmail.com",
+      emailVerified: true,
+      name: "",
+    });
+    const { decideAccess } = await import("./access.ts");
+    decideAccess(db, "user@gmail.com", "approved", new Date());
+    const user = { headers: { Cookie: cookies(await login(app)) } };
+    const variants: Record<string, string>[] = [
+      { ...user.headers, "Content-Type": "application/json" },
+      {
+        Authorization: `Bearer ${createApiToken(db, "google:555", new Date())}`,
+        "Content-Type": "application/json",
+      },
+    ];
+    for (const headers of variants) {
+      const res = await app.request("/api/admin/access", {
+        method: "POST",
+        headers,
+        body,
+      });
+      expect(res.status).toBe(403);
+    }
+    const list = await (await app.request("/api/admin/access", admin)).json();
+    expect(list.entries.map((e: { email: string }) => e.email)).not.toContain(
+      "x@gmail.com",
+    );
+  });
+
   it("админ может заранее одобрить почту — человек входит без заявки", async () => {
     const google = fakeGoogle();
     const { app } = createTestApp({ auth, identity: google });

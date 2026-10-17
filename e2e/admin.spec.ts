@@ -17,4 +17,15 @@ test("админка: пустить почту заранее и закрыть
   await expect(
     page.getByRole("heading", { name: "Отклонённые" }),
   ).toBeVisible();
+
+  // Поиск по заявкам и доступу.
+  await page.getByLabel("Поиск по заявкам").fill("FRIEND");
+  await expect(
+    page.getByText("friend@gmail.com", { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Поиск по заявкам").fill("nobody");
+  await expect(page.getByText("Ничего не нашлось.")).toBeVisible();
+  await expect(
+    page.getByText("friend@gmail.com", { exact: true }),
+  ).toBeHidden();
 });

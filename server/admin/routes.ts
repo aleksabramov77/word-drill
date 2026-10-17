@@ -23,10 +23,23 @@ export function mountAdmin(
   app: Hono<AuthEnv>,
   { db, auth, now }: { db: Db; auth: AuthConfig; now: () => Date },
 ) {
+  // Проверка на сервере — интерфейс только прячет ссылку. Пускаем, если:
+  // 1) вошёл админ (почта из ALLOWED_EMAILS);
+  // 2) по cookie сессии, а не по личному токену: утёкший токен «Команд» iOS не даёт одобрять людей;
+  // 3) изменения — только JSON (вместе с SameSite-cookie это закрывает подделанные запросы с чужих сайтов).
   app.use("/admin/*", async (c, next) => {
+    if (c.req.header("authorization")) {
+      return c.json({ error: "admin requires a browser session" }, 403);
+    }
     const user = findUser(db, c.get("userId"));
     if (!user || !isAdminEmail(auth, user.email)) {
       return c.json({ error: "forbidden" }, 403);
+    }
+    if (
+      c.req.method !== "GET" &&
+      !c.req.header("content-type")?.startsWith("application/json")
+    ) {
+      return c.json({ error: "json required" }, 415);
     }
     return next();
   });

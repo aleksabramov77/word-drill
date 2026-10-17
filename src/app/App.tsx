@@ -4,6 +4,7 @@ import { useMe } from "@/entities/session";
 import { AdminPage } from "@/pages/admin";
 import { DrillPage } from "@/pages/drill";
 import { LoginPage } from "@/pages/login";
+import { PrivacyPage } from "@/pages/privacy";
 import { SettingsPage } from "@/pages/settings";
 import { WordsPage } from "@/pages/words";
 import { queryClient } from "@/shared/api";
@@ -22,8 +23,13 @@ const router = createBrowserRouter([
   },
 ]);
 
-/** Без входа — только экран входа; приложение грузится после /api/auth/me. */
+/** Без входа — только экран входа и политика конфиденциальности; приложение грузится после /api/auth/me. */
 function AuthGate() {
+  if (window.location.pathname === "/privacy") return <PrivacyPage />;
+  return <SignedIn />;
+}
+
+function SignedIn() {
   const { data: me, isLoading, isError, refetch } = useMe();
   if (isLoading) return null;
   if (isError) {
