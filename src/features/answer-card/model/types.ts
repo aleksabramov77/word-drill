@@ -40,6 +40,8 @@ export const stepResultSchema = z.object({
   /** Заготовка: null — скрытая буква. */
   mask: z.array(z.string().nullable()).optional(),
   revealed: z.number().optional(),
+  /** Уровень подсказки: 1 — число букв, 2 — шаблон (дальше открываются буквы). */
+  hintLevel: z.union([z.literal(1), z.literal(2)]).optional(),
   options: z.array(z.string()).optional(),
   outcome: z
     .object({

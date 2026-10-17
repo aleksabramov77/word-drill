@@ -118,7 +118,7 @@ describe("тренировка", () => {
     expect(result.outcome?.status).toBe("errors");
   });
 
-  it("неверный ввод → заготовка; одна подсказка из 11 букв и верный ответ — Hard", () => {
+  it("неверный ввод → число букв → шаблон → буква; одна буква из 11 и верный ответ — Hard", () => {
     const { add, step } = setup();
     const word = add("разочарование", ["frustration"]);
 
@@ -127,8 +127,12 @@ describe("тренировка", () => {
       verdict: "wrong",
       next: "hint",
       revealed: 0,
+      hintLevel: 1,
     });
     expect(typed.mask).toEqual(new Array(11).fill(null));
+
+    const template = step(word.id, "hint", "", { action: "reveal" });
+    expect(template).toMatchObject({ next: "hint", revealed: 0, hintLevel: 2 });
 
     const hinted = step(word.id, "hint", "", { action: "reveal" });
     expect(hinted.next).toBe("hint");
@@ -149,11 +153,15 @@ describe("тренировка", () => {
     expect(solved.outcome?.grade).toBe(Rating.Again);
   });
 
-  it("каждая неверная попытка с подсказками открывает букву; больше 25% — Again", () => {
+  it("каждая неверная попытка подсказывает больше: шаблон, потом буквы; больше 25% букв — Again", () => {
     const { add, step } = setup();
     const word = add("разочарование", ["frustration"]);
     step(word.id, "type", "xyz");
-    for (const wrong of ["aaa", "bbb", "ccc"]) {
+    expect(step(word.id, "hint", "aaa")).toMatchObject({
+      hintLevel: 2,
+      revealed: 0,
+    });
+    for (const wrong of ["bbb", "ccc", "ddd"]) {
       const result = step(word.id, "hint", wrong);
       expect(result).toMatchObject({ correct: false, next: "hint" });
     }
@@ -167,13 +175,18 @@ describe("тренировка", () => {
     step(word.id, "type", "xyz");
     expect(step(word.id, "hint", "aaa")).toMatchObject({
       next: "hint",
-      revealed: 1,
+      revealed: 0,
+      hintLevel: 2,
     });
     expect(step(word.id, "hint", "bbb")).toMatchObject({
       next: "hint",
+      revealed: 1,
+    });
+    expect(step(word.id, "hint", "ccc")).toMatchObject({
+      next: "hint",
       revealed: 2,
     });
-    const third = step(word.id, "hint", "ccc");
+    const third = step(word.id, "hint", "ddd");
     expect(third.next).toBe("choice");
     expect(third.options).toHaveLength(4);
   });
@@ -267,6 +280,7 @@ describe("несколько переводов", () => {
     expect(synonym.verdict).toBe("synonym");
     expect(synonym.next).toBe("hint");
     expect(synonym.revealed).toBe(0);
+    expect(synonym.hintLevel).toBe(2);
 
     // Синоним и на шаге подсказок — не ошибка: буква не открывается.
     const again = step(word.id, "hint", "far");

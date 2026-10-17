@@ -13,6 +13,8 @@ interface AnswerState {
   mask: (string | null)[];
   /** Сколько букв открыто подсказками. */
   revealed: number;
+  /** Уровень подсказки: 1 — число букв, 2 — шаблон. */
+  hintLevel: 1 | 2;
   options: string[];
   /** Показ закончен — ждём «Дальше». */
   done: StepResult | null;
@@ -27,6 +29,7 @@ export const useAnswerStore = create<AnswerState>((set) => ({
   last: null,
   mask: [],
   revealed: 0,
+  hintLevel: 1,
   options: [],
   done: null,
   start: (wordId, now = Date.now()) =>
@@ -37,6 +40,7 @@ export const useAnswerStore = create<AnswerState>((set) => ({
       last: null,
       mask: [],
       revealed: 0,
+      hintLevel: 1,
       options: [],
       done: null,
     }),
@@ -46,6 +50,7 @@ export const useAnswerStore = create<AnswerState>((set) => ({
       stage: result.next === "done" ? state.stage : result.next,
       mask: result.mask ?? state.mask,
       revealed: result.revealed ?? state.revealed,
+      hintLevel: result.hintLevel ?? state.hintLevel,
       options: result.options ?? state.options,
       done: result.next === "done" ? result : null,
     })),

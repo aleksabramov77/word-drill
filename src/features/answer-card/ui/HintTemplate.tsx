@@ -1,0 +1,175 @@
+import {
+  type CSSProperties,
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
+import {
+  firstEmptySlot,
+  isRevealed,
+  isSlot,
+  type Mask,
+  nextSlot,
+  prevSlot,
+  templateAnswer,
+  templateWords,
+  typeInto,
+} from "../lib/template.ts";
+
+/** Промежуток между клетками и между словами, px. */
+const GAP = 3;
+const WORD_GAP = 16;
+/** Фраза до стольких клеток встаёт в одну строку; длиннее — слова переносятся, но каждое целиком. */
+const ONE_LINE = 16;
+
+/**
+ * Шаблон, в который ответ вводится прямо по клеткам: тап — курсор в эту клетку,
+ * после каждой буквы курсор сам идёт вправо. Открытые подсказкой буквы — красные, их не стереть.
+ */
+export function HintTemplate({
+  mask,
+  onSubmit,
+  disabled,
+}: {
+  mask: Mask;
+  onSubmit: (value: string) => void;
+  disabled: boolean;
+}) {
+  // Введённое сохраняется между попытками: открытая буква просто встаёт поверх.
+  const [values, setValues] = useState(() => mask.map(() => ""));
+  const cells = useRef<(HTMLInputElement | null)[]>([]);
+  const focus = (i: number) => {
+    const cell = cells.current[i];
+    cell?.focus();
+    cell?.select();
+  };
+
+  // Новая подсказка — курсор в первую пустую клетку.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: только при смене шаблона
+  useEffect(() => {
+    focus(firstEmptySlot(mask, values));
+  }, [mask]);
+
+  const words = templateWords(mask);
+  const longest = Math.max(1, ...words.map((w) => w.length));
+  const total = words.reduce((n, w) => n + w.length, 0);
+  // Клетки сужаются, чтобы короткая фраза встала в одну строку, а длинное слово — целиком.
+  const [cellsInLine, gaps] =
+    total <= ONE_LINE
+      ? [total, (total - words.length) * GAP + (words.length - 1) * WORD_GAP]
+      : [longest, (longest - 1) * GAP];
+  const width = `clamp(0.9rem, calc((100cqw - ${gaps}px) / ${cellsInLine}), 2.25rem)`;
+  // Шрифт не меньше 16px — иначе iPhone приближает страницу при касании клетки.
+  const cellStyle: CSSProperties = {
+    width,
+    fontSize: `clamp(1rem, calc(${width} * 0.7), 1.375rem)`,
+  };
+
+  const filled = mask.some((ch, i) => ch === null && values[i]);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (filled) onSubmit(templateAnswer(mask, values));
+  };
+
+  const change = (i: number, raw: string) => {
+    if (raw === "") {
+      setValues((v) => v.map((x, j) => (j === i ? "" : x)));
+      return;
+    }
+    // Обычно буква в клетке выделена и заменяется; если нет — берём только новое.
+    const old = values[i] ?? "";
+    const text =
+      old && raw.length > 1 && raw.startsWith(old)
+        ? raw.slice(old.length)
+        : raw;
+    const typed = typeInto(mask, values, i, text);
+    setValues(typed.values);
+    focus(typed.cursor);
+  };
+
+  const keyDown = (i: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !values[i]) {
+      e.preventDefault();
+      const prev = prevSlot(mask, i);
+      if (prev < 0) return;
+      setValues((v) => v.map((x, j) => (j === prev ? "" : x)));
+      focus(prev);
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      const prev = prevSlot(mask, i);
+      if (prev >= 0) focus(prev);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      const next = nextSlot(mask, i + 1);
+      if (next >= 0) focus(next);
+    } else if (e.key === " ") {
+      e.preventDefault();
+      focus(typeInto(mask, values, i, " ").cursor);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <div
+        className="flex flex-wrap gap-y-3 font-mono"
+        style={{ containerType: "inline-size", columnGap: `${WORD_GAP}px` }}
+        data-testid="hint-mask"
+      >
+        {words.map((word) => (
+          <div
+            key={word[0]}
+            className="flex flex-wrap"
+            style={{ gap: `${GAP}px` }}
+          >
+            {word.map((i) => {
+              if (isSlot(mask, i)) {
+                return (
+                  <input
+                    key={i}
+                    ref={(el) => {
+                      cells.current[i] = el;
+                    }}
+                    value={values[i] ?? ""}
+                    onChange={(e) => change(i, e.target.value)}
+                    onKeyDown={(e) => keyDown(i, e)}
+                    onFocus={(e) => e.target.select()}
+                    style={cellStyle}
+                    className="h-11 rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center outline-none focus:border-primary focus:bg-primary/10"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    lang="en"
+                    enterKeyHint="go"
+                    aria-label={`Буква ${i + 1}`}
+                  />
+                );
+              }
+              return (
+                <span
+                  key={i}
+                  style={cellStyle}
+                  className={cn(
+                    "inline-flex h-11 items-center justify-center",
+                    isRevealed(mask, i) &&
+                      "border-destructive border-b-2 font-semibold text-destructive",
+                  )}
+                  data-revealed={isRevealed(mask, i) || undefined}
+                >
+                  {mask[i]}
+                </span>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <Button type="submit" size="lg" disabled={disabled || !filled}>
+        Проверить
+      </Button>
+    </form>
+  );
+}
