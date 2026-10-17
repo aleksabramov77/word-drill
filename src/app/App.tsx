@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { useMe } from "@/entities/session";
+import { AdminPage } from "@/pages/admin";
 import { DrillPage } from "@/pages/drill";
 import { LoginPage } from "@/pages/login";
 import { SettingsPage } from "@/pages/settings";
@@ -15,6 +16,7 @@ const router = createBrowserRouter([
       { path: "/", element: <DrillPage /> },
       { path: "/words", element: <WordsPage /> },
       { path: "/settings", element: <SettingsPage /> },
+      { path: "/admin", element: <AdminPage /> },
       { path: "*", element: <DrillPage /> },
     ],
   },

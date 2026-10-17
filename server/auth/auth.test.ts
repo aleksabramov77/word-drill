@@ -72,6 +72,7 @@ describe("вход через Google", () => {
     expect(await me.json()).toEqual({
       user: { email: "me@gmail.com", name: "Me" },
       mode: "google",
+      isAdmin: true,
     });
     expect((await app.request("/api/words", session)).status).toBe(200);
 
@@ -106,16 +107,108 @@ describe("вход через Google", () => {
     expect(myWords.words).toHaveLength(1);
   });
 
-  it("чужая или неподтверждённая почта — отказ", async () => {
-    for (const person of [
-      { email: "stranger@gmail.com" },
-      { emailVerified: false },
-    ]) {
-      const { app } = createTestApp({ auth, identity: fakeGoogle(person) });
-      const res = await login(app);
-      expect(res.headers.get("location")).toBe("/login?error=forbidden");
-      expect(cookies(res)).not.toContain("wd_session");
-    }
+  it("неподтверждённая почта — отказ", async () => {
+    const { app } = createTestApp({
+      auth,
+      identity: fakeGoogle({ emailVerified: false }),
+    });
+    const res = await login(app);
+    expect(res.headers.get("location")).toBe("/login?error=forbidden");
+    expect(cookies(res)).not.toContain("wd_session");
+  });
+
+  it("незнакомая почта → заявка и пуш админу; админ одобряет — входит; отклоняет — сессии закрыты", async () => {
+    const sent: { endpoint: string; title: string; body: string }[] = [];
+    const pusher = {
+      publicKey: "k",
+      send: async (
+        t: { endpoint: string },
+        p: { title: string; body: string },
+      ) => {
+        sent.push({ endpoint: t.endpoint, title: p.title, body: p.body });
+        return { ok: true as const };
+      },
+    };
+    const google = fakeGoogle();
+    const { app } = createTestApp({ auth, identity: google, pusher });
+    const admin = { headers: { Cookie: cookies(await login(app)) } };
+    await app.request("/api/push/subscribe", {
+      method: "POST",
+      headers: { ...admin.headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subscription: {
+          endpoint: "https://push.example/admin",
+          keys: { p256dh: "p", auth: "a" },
+        },
+      }),
+    });
+
+    const stranger = {
+      sub: "999",
+      email: "friend@gmail.com",
+      emailVerified: true,
+      name: "Friend",
+    };
+    google.identify = async () => stranger;
+    const first = await login(app);
+    expect(first.headers.get("location")).toBe("/login?status=pending");
+    expect(cookies(first)).not.toContain("wd_session");
+    expect(sent).toEqual([
+      {
+        endpoint: "https://push.example/admin",
+        title: "Заявка на вход в Word Drill",
+        body: "Friend · friend@gmail.com",
+      },
+    ]);
+    await login(app); // повторная попытка до решения — без второго пуша
+    expect(sent).toHaveLength(1);
+
+    const list = await (await app.request("/api/admin/access", admin)).json();
+    expect(list.admins).toEqual(["me@gmail.com", "kid@gmail.com"]);
+    expect(list.entries).toMatchObject([
+      { email: "friend@gmail.com", name: "Friend", status: "pending" },
+    ]);
+
+    const decide = (status: string) =>
+      app.request("/api/admin/access", {
+        method: "POST",
+        headers: { ...admin.headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "friend@gmail.com", status }),
+      });
+    expect((await decide("approved")).status).toBe(200);
+    const approved = await login(app);
+    expect(approved.headers.get("location")).toBe("/");
+    const friend = { headers: { Cookie: cookies(approved) } };
+    expect((await app.request("/api/words", friend)).status).toBe(200);
+    // не админ — в админку нельзя
+    expect((await app.request("/api/admin/access", friend)).status).toBe(403);
+    expect(
+      (await (await app.request("/api/auth/me", friend)).json()).isAdmin,
+    ).toBe(false);
+
+    expect((await decide("denied")).status).toBe(200);
+    expect((await app.request("/api/words", friend)).status).toBe(401);
+    expect((await login(app)).headers.get("location")).toBe(
+      "/login?error=forbidden",
+    );
+  });
+
+  it("админ может заранее одобрить почту — человек входит без заявки", async () => {
+    const google = fakeGoogle();
+    const { app } = createTestApp({ auth, identity: google });
+    const admin = { headers: { Cookie: cookies(await login(app)) } };
+    await app.request("/api/admin/access", {
+      method: "POST",
+      headers: { ...admin.headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: " Wife@Gmail.com ", status: "approved" }),
+    });
+    google.identify = async () => ({
+      sub: "777",
+      email: "wife@gmail.com",
+      emailVerified: true,
+      name: "",
+    });
+    expect((await login(app)).headers.get("location")).toBe("/");
   });
 
   it("state не совпал — отказ", async () => {

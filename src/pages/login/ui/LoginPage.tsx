@@ -3,13 +3,15 @@ import { Button } from "@/shared/ui/button";
 
 const ERRORS: Record<string, string> = {
   forbidden:
-    "Эта почта не в списке. Попроси владельца добавить её — или войди другим аккаунтом Google.",
+    "Доступ для этой почты не открыт. Напиши владельцу — или войди другим аккаунтом Google.",
   state: "Вход прервался. Попробуй ещё раз.",
   google: "Google не подтвердил вход. Попробуй ещё раз.",
 };
 
 export function LoginPage() {
-  const error = new URLSearchParams(window.location.search).get("error");
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get("error");
+  const pending = params.get("status") === "pending";
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-4">
       <div className="flex flex-col gap-2">
@@ -18,6 +20,12 @@ export function LoginPage() {
           Тренажёр английских слов, которые никак не запоминаются.
         </p>
       </div>
+      {pending && (
+        <p className="rounded-lg bg-secondary p-3 text-sm">
+          Заявка отправлена владельцу. Как только он её одобрит — нажми «Войти
+          через Google» ещё раз.
+        </p>
+      )}
       {error && (
         <p className="rounded-lg bg-destructive/10 p-3 text-destructive text-sm">
           {ERRORS[error] ?? ERRORS.google}

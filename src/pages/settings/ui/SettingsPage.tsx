@@ -1,3 +1,5 @@
+import { ShieldCheck } from "lucide-react";
+import { Link } from "react-router";
 import { useLogout, useMe } from "@/entities/session";
 import { ShortcutSetup } from "@/features/api-token";
 import { PushSettings } from "@/features/push-subscribe";
@@ -10,6 +12,14 @@ export function SettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-semibold text-xl">Настройки</h1>
+      {me?.isAdmin && (
+        <Button asChild variant="outline" className="self-start">
+          <Link to="/admin">
+            <ShieldCheck />
+            Админка: заявки и доступ
+          </Link>
+        </Button>
+      )}
       <section className="flex flex-col gap-2 rounded-xl border p-4">
         <h2 className="font-medium">Уведомления</h2>
         <PushSettings />
