@@ -1,4 +1,5 @@
 import { useLogout, useMe } from "@/entities/session";
+import { ShortcutSetup } from "@/features/api-token";
 import { PushSettings } from "@/features/push-subscribe";
 import { ScheduleSettings } from "@/features/schedule-settings";
 import { Button } from "@/shared/ui/button";
@@ -16,6 +17,10 @@ export function SettingsPage() {
       <section className="flex flex-col gap-2 rounded-xl border p-4">
         <h2 className="font-medium">Расписание</h2>
         <ScheduleSettings />
+      </section>
+      <section className="flex flex-col gap-2 rounded-xl border p-4">
+        <h2 className="font-medium">Быстрое добавление с iPhone</h2>
+        <ShortcutSetup />
       </section>
       <section className="flex flex-col gap-2 rounded-xl border p-4">
         <h2 className="font-medium">Аккаунт</h2>

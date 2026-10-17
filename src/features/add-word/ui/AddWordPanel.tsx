@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import {
   useDictionarySearch,
   useUnits,
@@ -8,6 +9,7 @@ import { useWords } from "@/entities/word";
 import { Input } from "@/shared/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { DictionaryWordRow } from "./DictionaryWordRow.tsx";
+import { InboxTab } from "./InboxTab.tsx";
 import { ManualWordForm } from "./ManualWordForm.tsx";
 
 /** Какие английские слова уже в списке — чтобы показать «В списке» вместо «Добавить». */
@@ -91,12 +93,20 @@ function UnitTab() {
 }
 
 export function AddWordPanel() {
+  const added = useAddedAnswers();
+  // Вкладка — в URL (?tab=inbox): команда iOS после отправки скриншота открывает сразу «Входящие».
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") ?? "search";
   return (
-    <Tabs defaultValue="search">
+    <Tabs
+      value={tab}
+      onValueChange={(value) => setParams({ tab: value }, { replace: true })}
+    >
       <TabsList className="w-full">
         <TabsTrigger value="search">Поиск</TabsTrigger>
-        <TabsTrigger value="unit">По юниту</TabsTrigger>
+        <TabsTrigger value="unit">Юнит</TabsTrigger>
         <TabsTrigger value="manual">Вручную</TabsTrigger>
+        <TabsTrigger value="inbox">Входящие</TabsTrigger>
       </TabsList>
       <TabsContent value="search" className="pt-2">
         <SearchTab />
@@ -106,6 +116,9 @@ export function AddWordPanel() {
       </TabsContent>
       <TabsContent value="manual" className="pt-2">
         <ManualWordForm />
+      </TabsContent>
+      <TabsContent value="inbox" className="pt-2">
+        <InboxTab added={added} />
       </TabsContent>
     </Tabs>
   );

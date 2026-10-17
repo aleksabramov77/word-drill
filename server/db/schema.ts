@@ -35,6 +35,37 @@ export const sessions = sqliteTable(
   (t) => [index("sessions_user").on(t.userId)],
 );
 
+/** Личные токены для «Команд» iOS и других скриптов (Authorization: Bearer). В базе — только хэш. */
+export const apiTokens = sqliteTable(
+  "api_tokens",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    hash: text("hash").notNull().unique(),
+    /** Первые символы токена — чтобы отличать токены в списке. */
+    prefix: text("prefix").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("api_tokens_user").on(t.userId)],
+);
+
+/** «Входящие»: текст со скриншота или из «Поделиться» — из него предлагаются слова. */
+export const inbox = sqliteTable(
+  "inbox",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("inbox_user").on(t.userId, t.createdAt)],
+);
+
 export const pushSubscriptions = sqliteTable(
   "push_subscriptions",
   {

@@ -17,6 +17,7 @@ import {
   SESSION_DAYS,
   sessionUser,
 } from "./sessions.ts";
+import { apiTokenUser } from "./tokens.ts";
 
 export type AuthEnv = { Variables: { userId: string } };
 
@@ -48,8 +49,13 @@ function devUserId(deps: AuthDeps): string {
   return ensureUser(deps.db, LOCAL_USER_ID, deps.auth.email, deps.now());
 }
 
-/** Кто делает запрос: из cookie сессии (google) или локальный пользователь (dev). */
+/**
+ * Кто делает запрос: личный токен (Authorization: Bearer — «Команды» iOS), cookie сессии (google)
+ * или локальный пользователь (dev).
+ */
 function currentUserId(c: Context, deps: AuthDeps): string | null {
+  const bearer = c.req.header("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (bearer) return apiTokenUser(deps.db, bearer, deps.now());
   if (deps.auth.mode === "dev") return devUserId(deps);
   const token = getCookie(c, SESSION_COOKIE);
   return token ? sessionUser(deps.db, token, deps.now()) : null;
