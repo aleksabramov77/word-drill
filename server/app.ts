@@ -171,6 +171,7 @@ export function createApp({
     return c.json(
       drillQueue(db, c.get("userId"), now(), {
         prefer: word.success ? word.data : undefined,
+        dictionary,
       }),
     );
   });

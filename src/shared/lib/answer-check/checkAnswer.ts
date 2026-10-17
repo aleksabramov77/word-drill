@@ -5,10 +5,17 @@ import { canonicalSpelling, normalize, stripOptional } from "./normalize.ts";
  * - `correct` — верно (с точностью до регистра, артикля, `to`, британского написания);
  * - `typo` — знаешь, но с ошибкой: ошибок не больше, чем допускает длина слова;
  * - `partial` — слово узнаётся, но ошибок много (до ~40% букв);
+ * - `synonym` — тоже верный перевод (по словарю), но загадано другое слово;
  * - `other-word` — введён перевод другого слова из списка;
  * - `wrong` — не знаешь.
  */
-export type Verdict = "correct" | "typo" | "partial" | "other-word" | "wrong";
+export type Verdict =
+  | "correct"
+  | "typo"
+  | "partial"
+  | "synonym"
+  | "other-word"
+  | "wrong";
 
 export interface CheckResult {
   verdict: Verdict;
@@ -50,6 +57,8 @@ export function checkAnswer(
   input: string,
   accepted: readonly string[],
   otherAnswers: readonly string[] = [],
+  /** Другие переводы тех же русских слов: такой ответ не ошибка, но загадано другое. */
+  synonyms: readonly string[] = [],
 ): CheckResult {
   const [first] = accepted;
   if (first === undefined) throw new Error("нет ни одного правильного ответа");
@@ -75,6 +84,9 @@ export function checkAnswer(
   if (distance === 0) return { verdict: "correct", expected, distance };
   if (distance <= allowedTypos(letters)) {
     return { verdict: "typo", expected, distance };
+  }
+  if (synonyms.some((other) => answerDistance(input, other) === 0)) {
+    return { verdict: "synonym", expected, distance };
   }
   if (otherAnswers.some((other) => answerDistance(input, other) === 0)) {
     return { verdict: "other-word", expected, distance };

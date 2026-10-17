@@ -7,6 +7,7 @@ export const verdictSchema = z.enum([
   "correct",
   "typo",
   "partial",
+  "synonym",
   "other-word",
   "wrong",
 ]);
@@ -15,6 +16,8 @@ export type Verdict = z.infer<typeof verdictSchema>;
 export const drillCardSchema = z.object({
   wordId: z.number(),
   prompt: z.string(),
+  /** Другие русские формы того же слова (по словарю) — мелко под главной, в случайном порядке. */
+  alsoPrompts: z.array(z.string()).default([]),
   letters: z.number(),
   isNew: z.boolean(),
   hot: z.boolean(),

@@ -114,3 +114,15 @@ describe("checkAnswer", () => {
     expect(() => checkAnswer("x", [])).toThrow();
   });
 });
+
+describe("синонимы", () => {
+  it("другой верный перевод — synonym, а не ошибка; свой ответ важнее", () => {
+    const synonym = (input: string) =>
+      checkAnswer(input, ["by far"], [], ["a lot", "way"]).verdict;
+    expect(synonym("a lot")).toBe("synonym");
+    expect(synonym("lot")).toBe("synonym");
+    expect(synonym("Way")).toBe("synonym");
+    expect(synonym("by far")).toBe("correct");
+    expect(synonym("a lto")).toBe("wrong");
+  });
+});
