@@ -43,6 +43,7 @@ import {
 import type {
   Attempt,
   DrillQueue,
+  HintLevel,
   StepInput,
   StepResult,
   StoredCard,
@@ -407,16 +408,30 @@ function typeStep(
   };
 }
 
-/** Шаг подсказок: открыть букву, перейти к вариантам или проверить ответ (неверный — открывает ещё букву). */
+/**
+ * Шаг подсказок: подсказать больше, перейти к вариантам или проверить ответ.
+ * Подсказки по нарастающей: число букв → шаблон → по одной букве. Неверная попытка тоже подсказывает больше.
+ */
 function hintStep(
   dictionary: Dictionary,
   row: WordRow,
   step: StepInput,
   attempt: Attempt,
-): { result: StageResult; revealed: number[]; checked?: CheckResult } {
+): {
+  result: StageResult;
+  revealed: number[];
+  hintLevel: HintLevel;
+  checked?: CheckResult;
+} {
   const answer = row.answers[0] ?? "";
   const revealed = [...attempt.revealed];
-  const reveal = () => {
+  let hintLevel: HintLevel = attempt.hintLevel ?? 2;
+  /** Подсказать больше: сначала шаблон, потом буква. false — подсказывать больше нечего. */
+  const more = () => {
+    if (hintLevel < 2) {
+      hintLevel = 2;
+      return true;
+    }
     const index = nextHintIndex(answer, revealed);
     if (index !== null) revealed.push(index);
     return index !== null;
@@ -426,12 +441,14 @@ function hintStep(
     return {
       result: { stage: "hint", correct: false, exhausted: false, giveUp: true },
       revealed,
+      hintLevel,
     };
   }
   if (step.action === "reveal") {
     return {
-      result: { stage: "hint", correct: false, exhausted: !reveal() },
+      result: { stage: "hint", correct: false, exhausted: !more() },
       revealed,
+      hintLevel,
     };
   }
   const checked = checkAnswer(
@@ -441,16 +458,22 @@ function hintStep(
     cardSynonyms(dictionary, row),
   );
   const correct = checked.verdict === "correct" || checked.verdict === "typo";
-  // Синоним — не ошибка: буква не открывается, просто «загадано другое слово».
+  // Синоним — не ошибка: подсказка не растёт, просто «загадано другое слово».
   if (correct || checked.verdict === "synonym")
     return {
       result: { stage: "hint", correct, exhausted: false },
       revealed,
+      hintLevel,
       checked,
     };
-  const revealedMore = reveal();
-  const exhausted = !revealedMore || revealed.length * 2 > hintLetters(answer);
-  return { result: { stage: "hint", correct, exhausted }, revealed, checked };
+  const gaveMore = more();
+  const exhausted = !gaveMore || revealed.length * 2 > hintLetters(answer);
+  return {
+    result: { stage: "hint", correct, exhausted },
+    revealed,
+    hintLevel,
+    checked,
+  };
 }
 
 /** Один шаг лестницы для слова: проверить ответ, решить, что дальше, и в конце показа обновить FSRS. */
@@ -478,6 +501,8 @@ export function answerStep(
       row,
       step,
     ));
+    // Другой верный перевод — сразу шаблон: смысл понятен, нужно найти именно это слово.
+    attempt.hintLevel = checked.verdict === "synonym" ? 2 : 1;
   } else {
     // Шаги ниже ввода продолжают начатый показ; без него (страница открыта заново) — считаем, что ввод не удался.
     const current: Attempt = row.attempt ?? {
@@ -489,8 +514,9 @@ export function answerStep(
       elapsedMs: null,
     };
     let revealed = current.revealed;
+    let hintLevel = current.hintLevel;
     if (step.stage === "hint") {
-      ({ result, revealed, checked } = hintStep(
+      ({ result, revealed, hintLevel, checked } = hintStep(
         dictionary,
         row,
         step,
@@ -506,6 +532,7 @@ export function answerStep(
     attempt = {
       ...current,
       revealed,
+      ...(hintLevel ? { hintLevel } : {}),
       deepest: deeperStage(current.deepest, step.stage),
     };
   }
@@ -533,6 +560,7 @@ export function answerStep(
       ...base,
       mask: maskAnswer(answer, attempt.revealed),
       revealed: attempt.revealed.length,
+      hintLevel: attempt.hintLevel ?? 2,
     };
   }
   if (next === "choice") {

@@ -24,28 +24,41 @@ test("лестница: ввод → подсказки по буквам → в
   await addManual(page, "разочарование", "frustration");
   await expect(page.getByText("Мои слова (3)")).toBeVisible();
 
-  // «кровь»: не вспомнил → заготовка из 5 клеток.
+  // «кровь»: не вспомнил → число букв → шаблон → буквы.
   await page.getByRole("link", { name: "Тренировка" }).click();
   await expect(page.getByRole("heading", { name: "кровь" })).toBeVisible();
-  await expect(page.getByText("5 букв")).toBeVisible();
+  // При первом вводе длину слова не подсказываем.
+  await expect(page.getByText("5 букв")).toBeHidden();
   // Пустой ответ не отправить: случайный Enter не засчитывается как «Не помню».
   await expect(page.getByRole("button", { name: "Проверить" })).toBeDisabled();
   await page.getByLabel("Ответ по-английски").press("Enter");
-  await expect(page.getByText("Вспомни по подсказке:")).toBeHidden();
+  await expect(page.getByText("Подсказка:")).toBeHidden();
   await page.getByRole("button", { name: "Не помню" }).click();
 
+  // Подсказка 1 — только число букв.
+  await expect(page.getByText("Подсказка:")).toBeVisible();
+  await expect(page.getByTestId("length-hint")).toHaveText("5 букв");
+
+  // Подсказка 2 — шаблон из 5 клеток, ввод прямо в клетки.
+  await page.getByRole("button", { name: "Шаблон" }).click();
   const mask = page.getByTestId("hint-mask");
-  await expect(page.getByText("Вспомни по подсказке:")).toBeVisible();
-  await expect(mask.locator("span")).toHaveCount(5);
+  const cells = mask.getByRole("textbox");
+  await expect(cells).toHaveCount(5);
   await expect(page.getByText("Подсказок: 0.")).toBeVisible();
 
-  // «Ещё буква» — первая буква.
+  // «Ещё буква» — первая буква, красная, в неё не ввести.
   await page.getByRole("button", { name: "Ещё буква" }).click();
-  await expect(mask).toContainText("b");
+  await expect(mask.locator("[data-revealed]")).toHaveText("b");
+  await expect(cells).toHaveCount(4);
   await expect(page.getByText("Подсказок: 1.")).toBeVisible();
 
+  // Касание любой клетки ставит туда курсор, дальше курсор сам идёт вправо.
+  await page.getByLabel("Буква 3").click();
+  await page.keyboard.type("xx");
+  await expect(page.getByLabel("Буква 3")).toHaveValue("x");
+  await expect(page.getByLabel("Буква 4")).toHaveValue("x");
+  await expect(page.getByLabel("Буква 5")).toBeFocused();
   // Неверная попытка открывает ещё букву.
-  await page.getByLabel("Ответ по-английски").fill("bxx");
   await page.getByRole("button", { name: "Проверить" }).click();
   await expect(page.getByText("Не то — открыл ещё одну букву:")).toBeVisible();
   await expect(page.getByText("Подсказок: 2.")).toBeVisible();
@@ -84,11 +97,18 @@ test("лестница: ввод → подсказки по буквам → в
   ).toBeVisible();
   await page.getByLabel("Ответ по-английски").fill("frustr");
   await page.getByRole("button", { name: "Проверить" }).click();
-  await expect(mask.locator("span")).toHaveCount(11);
-  await page.getByRole("button", { name: "Ещё буква" }).click();
-  await expect(mask).toContainText("f");
-  await page.getByLabel("Ответ по-английски").fill("frustration");
+  await expect(page.getByTestId("length-hint")).toHaveText("11 букв");
+  // Неверная попытка на числе букв — дальше шаблон.
+  await page.getByLabel("Ответ по-английски").fill("frust");
   await page.getByRole("button", { name: "Проверить" }).click();
+  await expect(page.getByText("Не то — вот шаблон слова:")).toBeVisible();
+  await expect(cells).toHaveCount(11);
+  await page.getByRole("button", { name: "Ещё буква" }).click();
+  await expect(mask.locator("[data-revealed]")).toHaveText("f");
+  // Ввод с первой клетки: открытая «f» пропускается.
+  await page.getByLabel("Буква 2").click();
+  await page.keyboard.type("rustration");
+  await page.keyboard.press("Enter");
   await expect(page.getByText("Верно, с подсказкой")).toBeVisible();
   await page.getByRole("button", { name: "Дальше" }).click();
 

@@ -27,8 +27,12 @@ export interface Attempt {
   deepest: Stage;
   /** Открытые подсказками буквы (индексы в основном ответе). */
   revealed: number[];
+  /** Уровень подсказки: 1 — только число букв, 2 — шаблон (дальше открываются буквы). Нет — шаблон. */
+  hintLevel?: HintLevel;
   elapsedMs: number | null;
 }
+
+export type HintLevel = 1 | 2;
 
 export interface WordView {
   id: number;
@@ -52,7 +56,7 @@ export interface DrillCard {
   prompt: string;
   /** Другие русские формы того же слова (по словарю), в случайном порядке. */
   alsoPrompts: string[];
-  /** Число букв ответа — для подсказки длины. */
+  /** Число букв ответа. */
   letters: number;
   isNew: boolean;
   hot: boolean;
@@ -86,6 +90,8 @@ export interface StepResult {
   mask?: (string | null)[];
   /** Сколько букв открыто подсказками. */
   revealed?: number;
+  /** Уровень подсказки: 1 — число букв, 2 — шаблон. */
+  hintLevel?: HintLevel;
   /** Варианты, если следующий шаг — выбор. */
   options?: string[];
   outcome?: {

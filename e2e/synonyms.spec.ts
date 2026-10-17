@@ -30,7 +30,16 @@ test("главная форма крупно, остальные мелко; д�
   ).toBeVisible();
   await expect(page.getByText("Подсказок: 0.")).toBeVisible();
 
-  await page.getByLabel("Ответ по-английски").fill("by far");
+  // Шаблон фразы — два слова; пробел переводит курсор к следующему слову.
+  const mask = page.getByTestId("hint-mask");
+  await expect(mask.getByRole("textbox")).toHaveCount(5);
+  await page.getByLabel("Буква 1").click();
+  await page.keyboard.type("b f");
+  await expect(page.getByLabel("Буква 4")).toHaveValue("f");
+  await page.getByLabel("Буква 2").click();
+  await page.keyboard.type("y");
+  await page.getByLabel("Буква 5").click();
+  await page.keyboard.type("ar");
   await page.getByRole("button", { name: "Проверить" }).click();
   await expect(page.getByText("Верно, с подсказкой")).toBeVisible();
 });

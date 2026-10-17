@@ -1,4 +1,4 @@
-import { Lightbulb, ListChecks } from "lucide-react";
+import { Lightbulb, ListChecks, RectangleEllipsis } from "lucide-react";
 import {
   type FormEvent,
   useEffect,
@@ -7,26 +7,27 @@ import {
   useState,
 } from "react";
 import { WordStatusBadge } from "@/entities/word";
-import { plural, untilText } from "@/shared/lib/format";
+import { untilText } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { type StepRequest, useAnswerStep } from "../api/drillApi.ts";
+import { lengthHint } from "../lib/template.ts";
 import { useAnswerStore } from "../model/store.ts";
 import type { DrillCard, StepResult, Verdict } from "../model/types.ts";
 import { AnswerDiff } from "./AnswerDiff.tsx";
-import { HintMask } from "./HintMask.tsx";
+import { HintTemplate } from "./HintTemplate.tsx";
 
 /** Что сказать после неудачного ввода, когда открывается заготовка. */
 const HINT_INTRO: Record<Verdict, string> = {
   correct: "",
   typo: "",
-  partial: "Близко, но ошибок много. Вспомни по подсказке:",
+  partial: "Близко, но ошибок много. Подсказка:",
   // Заменяется сообщением с введённым словом — см. synonymIntro.
   synonym: "Тоже верно, но здесь загадано другое слово:",
-  "other-word": "Это перевод другого слова. Вспомни по подсказке:",
-  wrong: "Вспомни по подсказке:",
+  "other-word": "Это перевод другого слова. Подсказка:",
+  wrong: "Подсказка:",
 };
 
 /** Введён другой верный перевод: не ошибка, буквы не открываются. */
@@ -130,12 +131,24 @@ export function AnswerCard({
   card: DrillCard;
   onNext: () => void;
 }) {
-  const { stage, shownAt, last, mask, revealed, options, done, start, apply } =
-    useAnswerStore();
+  const {
+    stage,
+    shownAt,
+    last,
+    mask,
+    revealed,
+    hintLevel,
+    options,
+    done,
+    start,
+    apply,
+  } = useAnswerStore();
   const step = useAnswerStep();
   const [lastInput, setLastInput] = useState("");
   /** Сколько раз отвечали на шаге подсказок — чтобы сбрасывать поле после неверной попытки. */
   const [hintTries, setHintTries] = useState(0);
+  /** Что сказать после неверной попытки на шаге подсказок (null — обычное вступление). */
+  const [hintNote, setHintNote] = useState<string | null>(null);
   const [showTries, setShowTries] = useState(0);
   /** До какого шага дошли: «Верно!» показываем, только если вспомнил сам (ввод или подсказки). */
   const [deepest, setDeepest] = useState<"type" | "hint" | "other">("type");
@@ -144,6 +157,7 @@ export function AnswerCard({
     start(card.wordId);
     setLastInput("");
     setHintTries(0);
+    setHintNote(null);
     setShowTries(0);
     setDeepest("type");
   }, [card.wordId, start]);
@@ -155,6 +169,15 @@ export function AnswerCard({
         onSuccess: (result) => {
           if (!request.action) setLastInput(request.input);
           if (stage === "hint" && !request.action) setHintTries((n) => n + 1);
+          if (stage === "hint") {
+            setHintNote(
+              request.action || result.correct || result.verdict === "synonym"
+                ? null
+                : result.hintLevel !== hintLevel
+                  ? "Не то — вот шаблон слова:"
+                  : "Не то — открыл ещё одну букву:",
+            );
+          }
           if (stage === "show" && !result.correct) setShowTries((n) => n + 1);
           if (result.next === "choice" || result.next === "show") {
             setDeepest("other");
@@ -196,14 +219,9 @@ export function AnswerCard({
           </div>
           <h2 className="font-semibold text-3xl">{card.prompt}</h2>
           {card.alsoPrompts.length > 0 && (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-base text-muted-foreground">
               {card.alsoPrompts.join(" · ")}
             </p>
-          )}
-          {stage === "type" && !done && (
-            <span className="text-muted-foreground text-sm">
-              {card.letters} {plural(card.letters, "буква", "буквы", "букв")}
-            </span>
           )}
         </div>
 
@@ -222,38 +240,51 @@ export function AnswerCard({
           />
         ) : stage === "hint" ? (
           <div className="flex flex-col gap-3">
-            <p className="text-sm">
+            <p className="text-base">
               {last?.verdict === "synonym"
                 ? synonymIntro(lastInput)
-                : hintTries > 0 && last?.correct === false
-                  ? "Не то — открыл ещё одну букву:"
-                  : last?.verdict
-                    ? HINT_INTRO[last.verdict]
-                    : "Вспомни по подсказке:"}
+                : (hintNote ??
+                  (last?.verdict ? HINT_INTRO[last.verdict] : "Подсказка:"))}
             </p>
-            <HintMask mask={mask} />
-            <p className="text-muted-foreground text-xs">
-              Подсказок: {revealed}. Каждая открытая буква — слово вернётся
-              раньше.
-            </p>
-            <TextAnswer
-              key={`hint-${hintTries}`}
-              placeholder="Допиши слово"
-              submitLabel="Проверить"
-              onSubmit={answer}
-              disabled={step.isPending}
-            />
+            {hintLevel === 1 ? (
+              <>
+                <p className="font-semibold text-xl" data-testid="length-hint">
+                  {lengthHint(mask)}
+                </p>
+                <TextAnswer
+                  key={`hint-${hintTries}`}
+                  placeholder="Напиши по-английски"
+                  submitLabel="Проверить"
+                  onSubmit={answer}
+                  disabled={step.isPending}
+                />
+              </>
+            ) : (
+              <>
+                <HintTemplate
+                  mask={mask}
+                  onSubmit={answer}
+                  disabled={step.isPending}
+                />
+                <p className="text-muted-foreground text-sm">
+                  Подсказок: {revealed}. Каждая открытая буква — слово вернётся
+                  раньше.
+                </p>
+              </>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
+                size="lg"
                 disabled={step.isPending}
                 onClick={() => send({ input: "", action: "reveal" })}
               >
-                <Lightbulb />
-                Ещё буква
+                {hintLevel === 1 ? <RectangleEllipsis /> : <Lightbulb />}
+                {hintLevel === 1 ? "Шаблон" : "Ещё буква"}
               </Button>
               <Button
                 variant="outline"
+                size="lg"
                 disabled={step.isPending}
                 onClick={() => send({ input: "", action: "choices" })}
               >
@@ -264,14 +295,14 @@ export function AnswerCard({
           </div>
         ) : stage === "choice" ? (
           <div className="flex flex-col gap-3">
-            <p className="text-sm">Выбери правильный вариант:</p>
+            <p className="text-base">Выбери правильный вариант:</p>
             <div className="grid grid-cols-2 gap-2" data-testid="choices">
               {options.map((option) => (
                 <Button
                   key={option}
                   variant="outline"
                   size="lg"
-                  className="h-auto min-h-12 whitespace-normal"
+                  className="h-auto min-h-14 whitespace-normal text-lg"
                   disabled={step.isPending}
                   onClick={() => answer(option)}
                 >
@@ -282,7 +313,7 @@ export function AnswerCard({
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-sm">
+            <p className="text-base">
               {showTries > 0
                 ? "Не совпало — перепиши точно:"
                 : "Правильный ответ — перепиши его, чтобы запомнить:"}
