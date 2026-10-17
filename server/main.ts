@@ -14,6 +14,7 @@ import {
 import { DEFAULT_DICTIONARY_PATH, loadDictionary } from "./dictionary/index.ts";
 import { createWebPushSender, readVapidConfig } from "./push/sender.ts";
 import { pushTick } from "./push/service.ts";
+import { announceUpdate } from "./push/update.ts";
 import { APP_VERSION } from "./version.ts";
 
 const port = Number(process.env.PORT ?? 5100);
@@ -77,7 +78,14 @@ async function tick() {
   if (!pusher || ticking) return;
   ticking = true;
   try {
-    const { sent } = await pushTick(db, pusher, new Date());
+    const now = new Date();
+    const updates = await announceUpdate(db, pusher, APP_VERSION, now);
+    if (updates > 0) {
+      console.log(
+        `[word-drill] уведомлений об обновлении ${APP_VERSION}: ${updates}`,
+      );
+    }
+    const { sent } = await pushTick(db, pusher, now);
     if (sent > 0) console.log(`[word-drill] уведомлений отправлено: ${sent}`);
   } catch (error) {
     console.error("[word-drill] ошибка планировщика уведомлений", error);

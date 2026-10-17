@@ -44,6 +44,7 @@ import {
   subscriptionSchema,
   updateSettings,
 } from "./push/service.ts";
+import { rememberAppVersion } from "./push/update.ts";
 import { APP_VERSION } from "./version.ts";
 
 export interface AppDeps {
@@ -107,6 +108,12 @@ export function createApp({
           });
         }
       : undefined,
+  });
+  // Версия приложения пользователя — чтобы не звать обновляться тех, у кого уже новая (push/update.ts).
+  app.use("*", async (c, next) => {
+    const userId = c.get("userId");
+    if (userId) rememberAppVersion(db, userId, c.req.header("x-app-version"));
+    await next();
   });
   mountAdmin(app, { db, auth, now });
 

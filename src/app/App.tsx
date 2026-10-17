@@ -6,6 +6,7 @@ import {
   useParams,
 } from "react-router";
 import { useMe } from "@/entities/session";
+import { UpdateBanner } from "@/features/app-update";
 import { AdminPage } from "@/pages/admin";
 import { DrillPage } from "@/pages/drill";
 import { LoginPage } from "@/pages/login";
@@ -16,7 +17,6 @@ import { WordsPage } from "@/pages/words";
 import { queryClient } from "@/shared/api";
 import { Layout } from "./Layout.tsx";
 import { useOpenFromNotification } from "./openFromNotification.ts";
-import { UpdateBanner } from "./UpdateBanner.tsx";
 
 const router = createBrowserRouter([
   {
