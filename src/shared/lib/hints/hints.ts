@@ -1,0 +1,41 @@
+// Подсказки по буквам (метод «исчезающих подсказок», Glisky, Schacter & Tulving, 1986):
+// сначала заготовка с числом букв, потом по одной букве. Первыми открываются первые буквы слов —
+// это самая сильная подсказка; дальше — случайные. Последнюю скрытую букву не открываем никогда: слово дописываешь сам.
+
+const LETTER = /[\p{L}\p{N}]/u;
+
+function isLetter(ch: string | undefined): boolean {
+  return ch !== undefined && LETTER.test(ch);
+}
+
+/** Сколько букв в ответе (пробелы, дефисы, апострофы не считаются). */
+export function hintLetters(answer: string): number {
+  return [...answer].filter(isLetter).length;
+}
+
+/** Заготовка: буквы — null (скрыта) или сама буква (открыта); пробелы и знаки — как есть. */
+export function maskAnswer(
+  answer: string,
+  revealed: readonly number[],
+): (string | null)[] {
+  const open = new Set(revealed);
+  return [...answer].map((ch, i) => (isLetter(ch) && !open.has(i) ? null : ch));
+}
+
+/** Индекс следующей буквы для подсказки или null, если осталась одна скрытая (её не открываем). */
+export function nextHintIndex(
+  answer: string,
+  revealed: readonly number[],
+  random = Math.random,
+): number | null {
+  const chars = [...answer];
+  const open = new Set(revealed);
+  const hidden = chars
+    .map((ch, i) => (isLetter(ch) && !open.has(i) ? i : -1))
+    .filter((i) => i >= 0);
+  if (hidden.length <= 1) return null;
+
+  const wordStart = hidden.find((i) => !isLetter(chars[i - 1]));
+  if (wordStart !== undefined) return wordStart;
+  return hidden[Math.floor(random() * hidden.length)] ?? null;
+}
