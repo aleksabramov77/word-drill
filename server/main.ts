@@ -12,6 +12,7 @@ import {
   openDb,
 } from "./db/client.ts";
 import { DEFAULT_DICTIONARY_PATH, loadDictionary } from "./dictionary/index.ts";
+import { pruneLogs, writeLog } from "./log.ts";
 import { createWebPushSender, readVapidConfig } from "./push/sender.ts";
 import { pushTick } from "./push/service.ts";
 import { announceUpdate } from "./push/update.ts";
@@ -47,15 +48,40 @@ root.route(
 );
 if (isProd) {
   // Готовая команда iOS (scripts/build-shortcut.ts): отдаётся файлом — по его имени «Команды» называют команду.
+  // ?via=window — открыта в отдельном окне: отдаём inline, иначе — вложением. Каждое скачивание — в журнал:
+  // по нему видно, кто запросил файл (Safari, окно внутри приложения, «Команды») и что получил.
+  root.use("/word-drill.shortcut", async (c, next) => {
+    await next();
+    writeLog(
+      db,
+      {
+        source: "server",
+        event: "shortcut-download",
+        data: {
+          status: c.res.status,
+          via: c.req.query("via") ?? null,
+          dest: c.req.header("sec-fetch-dest") ?? null,
+          mode: c.req.header("sec-fetch-mode") ?? null,
+          site: c.req.header("sec-fetch-site") ?? null,
+          accept: c.req.header("accept") ?? null,
+          range: c.req.header("range") ?? null,
+        },
+        userAgent: c.req.header("user-agent"),
+      },
+      new Date(),
+    );
+  });
   root.get(
     "/word-drill.shortcut",
     serveStatic({
       path: "./dist/client/word-drill.shortcut",
       onFound: (_path, c) => {
+        const disposition =
+          c.req.query("via") === "window" ? "inline" : "attachment";
         c.header("Content-Type", "application/octet-stream");
         c.header(
           "Content-Disposition",
-          "attachment; filename=\"Word Drill.shortcut\"; filename*=UTF-8''Word%20Drill.shortcut",
+          `${disposition}; filename="Word Drill.shortcut"; filename*=UTF-8''Word%20Drill.shortcut`,
         );
       },
     }),
@@ -79,6 +105,7 @@ async function tick() {
   ticking = true;
   try {
     const now = new Date();
+    pruneLogs(db, now);
     const updates = await announceUpdate(db, pusher, APP_VERSION, now);
     if (updates > 0) {
       console.log(

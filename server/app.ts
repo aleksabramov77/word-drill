@@ -31,6 +31,7 @@ import {
   inboxInputSchema,
   listInbox,
 } from "./inbox/service.ts";
+import { clientLogSchema, writeLog } from "./log.ts";
 import type { PushSender } from "./push/sender.ts";
 import {
   deleteSubscription,
@@ -257,6 +258,25 @@ export function createApp({
     return deleteApiToken(db, c.get("userId"), id.data)
       ? c.body(null, 204)
       : c.json({ error: "not found" }, 404);
+  });
+
+  // Журнал событий приложения (server/log.ts): для разбора проблем, видных только на устройстве.
+  app.post("/log", async (c) => {
+    const parsed = clientLogSchema.safeParse(await body(c.req));
+    if (!parsed.success) return c.json({ error: "bad log entry" }, 400);
+    writeLog(
+      db,
+      {
+        userId: c.get("userId"),
+        source: "client",
+        event: parsed.data.event,
+        data: parsed.data.data,
+        appVersion: c.req.header("x-app-version"),
+        userAgent: c.req.header("user-agent"),
+      },
+      now(),
+    );
+    return c.body(null, 204);
   });
 
   app.get("/inbox", (c) =>

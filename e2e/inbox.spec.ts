@@ -33,9 +33,12 @@ test("входящие: текст скриншота → подсказка п�
   await page.getByRole("button", { name: "Скопировать ключ" }).click();
   const { tokens } = await (await page.request.get("/api/tokens")).json();
   expect(tokens).toHaveLength(1);
-  // Файл команды — в отдельном окне: из экрана файла внутри приложения не выйти.
+  // Файл команды — в том же окне (так iPhone показывает «Open in Shortcuts»), запасной — в отдельном.
   await expect(
     page.getByRole("link", { name: "Установить команду" }),
+  ).toHaveAttribute("href", "/word-drill.shortcut?via=same");
+  await expect(
+    page.getByRole("link", { name: "Открыть в отдельном окне" }),
   ).toHaveAttribute("target", "_blank");
   await page.getByRole("button", { name: "Отключить команду" }).click();
   await expect(page.getByText(/^Ключ создан/)).toBeHidden();
