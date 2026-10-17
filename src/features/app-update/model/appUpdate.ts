@@ -6,7 +6,7 @@ import { APP_VERSION } from "@/shared/config";
 // - только что открыл приложение или вернулся в него (первые 10 секунд) — сама, незаметно;
 // - уже отвечаешь — плашка «Обновить» (UpdateBanner), а при следующем возврате — сама.
 // Новую версию ищем при запуске, при каждом возврате в приложение и при каждом уведомлении
-// (service worker), плюс кнопка «Проверить обновление» в «Ещё».
+// (service worker), плюс кнопка «Проверить наличие обновлений» в «Ещё» — она обновляет принудительно.
 
 const FRESH_MS = 10_000;
 const CHECK_WAIT_MS = 6_000;
@@ -18,7 +18,7 @@ interface AppUpdateState {
   version: string | null;
   checking: boolean;
   apply: () => void;
-  /** «Проверить обновление»: true — нашлась и применяется, false — уже последняя. */
+  /** «Проверить наличие обновлений»: true — нашлась и применяется принудительно, false — уже последняя. */
   check: () => Promise<boolean>;
 }
 
@@ -43,6 +43,31 @@ async function serverVersion(): Promise<string | null> {
   }
 }
 
+/**
+ * Принудительное обновление: скачать новый service worker и включить его (если он ждёт), удалить
+ * кэш приложения и перезагрузить страницу — она придёт с сервера. Сам service worker не удаляем:
+ * вместе с ним пропала бы подписка на уведомления.
+ */
+async function forceUpdate() {
+  const sw = navigator.serviceWorker;
+  const reg = registration ?? (await sw?.getRegistration());
+  const changed = new Promise<void>((resolve) => {
+    sw?.addEventListener("controllerchange", () => resolve(), { once: true });
+    setTimeout(resolve, CHECK_WAIT_MS);
+  });
+  await reg?.update().catch(() => undefined);
+  const next = reg?.waiting ?? reg?.installing;
+  if (next) {
+    next.postMessage({ type: "SKIP_WAITING" });
+    await changed;
+  }
+  if ("caches" in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+  }
+  reload();
+}
+
 export const useAppUpdate = create<AppUpdateState>()((set, get) => ({
   ready: false,
   version: null,
@@ -56,19 +81,10 @@ export const useAppUpdate = create<AppUpdateState>()((set, get) => ({
         reload();
         return true;
       }
-      if (!latest || latest === APP_VERSION) return false;
-      // Новая версия на сервере: скачать её service worker'ом и перезагрузиться.
-      const changed = new Promise<void>((resolve) => {
-        navigator.serviceWorker?.addEventListener(
-          "controllerchange",
-          () => resolve(),
-          { once: true },
-        );
-        setTimeout(resolve, CHECK_WAIT_MS);
-      });
-      await registration?.update().catch(() => undefined);
-      await changed;
-      reload();
+      // Без связи кэш не трогаем: иначе приложение не откроется офлайн.
+      if (!latest) throw new Error("сервер не ответил");
+      if (latest === APP_VERSION) return false;
+      await forceUpdate();
       return true;
     } finally {
       set({ checking: false });
