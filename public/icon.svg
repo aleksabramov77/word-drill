@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img">
+  <title>Word Drill</title>
+  <!-- Word Drill: заготовка слова с одной открытой буквой (подсказка) и искрой. Только фигуры, без шрифтов. -->
+  <rect width="512" height="512" fill="#171717"/>
+  <g transform="translate(256 256) scale(1.35) translate(-256 -256)">
+  <g transform="translate(90 300)">
+    <rect x="0" y="0" width="52" height="16" rx="8" fill="#ffffff"/>
+    <rect x="70" y="0" width="52" height="16" rx="8" fill="#737373"/>
+    <rect x="140" y="0" width="52" height="16" rx="8" fill="#737373"/>
+    <rect x="210" y="0" width="52" height="16" rx="8" fill="#737373"/>
+    <rect x="280" y="0" width="52" height="16" rx="8" fill="#737373"/>
+    <!-- открытая буква: «w» из линий над первой клеткой -->
+    <polyline points="2,-92 14,-24 26,-70 38,-24 50,-92" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  </g>
+  <path transform="translate(256 256) scale(1.35) translate(-256 -256)" d="M376 150 L390 190 L430 204 L390 218 L376 258 L362 218 L322 204 L362 190 Z" fill="#f97316"/>
+</svg>

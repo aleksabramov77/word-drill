@@ -206,14 +206,29 @@ export function drillQueue(
   db: Db,
   userId: string,
   now: Date,
-  { includeNew = true }: { includeNew?: boolean } = {},
+  {
+    includeNew = true,
+    prefer,
+    newAddedBefore,
+  }: {
+    includeNew?: boolean;
+    /** Слово из уведомления — показать его первым. */
+    prefer?: number;
+    /** Новые слова — только добавленные раньше этого момента (уведомления не шлют слово, которое только что добавили). */
+    newAddedBefore?: Date;
+  } = {},
 ): DrillQueue {
   const rows = userWords(db, userId).map((row) => ({
     row,
     card: fromStoredCard(row.card),
   }));
   const fresh = rows
-    .filter(({ card }) => card.state === State.New)
+    .filter(
+      ({ row, card }) =>
+        card.state === State.New &&
+        (!newAddedBefore ||
+          row.createdAt.getTime() <= newAddedBefore.getTime()),
+    )
     .sort((a, b) => a.row.createdAt.getTime() - b.row.createdAt.getTime());
   const started = rows.filter(({ card }) => card.state !== State.New);
   const due = started
@@ -229,7 +244,11 @@ export function drillQueue(
     .filter(({ card }) => card.due.getTime() > now.getTime())
     .map(({ card }) => card.due.getTime());
 
-  const pick = due[0] ?? (includeNew ? fresh[0] : undefined);
+  const preferred =
+    prefer === undefined
+      ? undefined
+      : rows.find(({ row }) => row.id === prefer);
+  const pick = preferred ?? due[0] ?? (includeNew ? fresh[0] : undefined);
   return {
     card: pick
       ? {
@@ -326,7 +345,12 @@ function typeStep(
     row.answers,
     otherAnswers(db, userId, row.id),
   );
-  const result: StageResult = { stage: "type", verdict: checked.verdict };
+  const result: StageResult = {
+    stage: "type",
+    verdict: checked.verdict,
+    // Пустой ответ — кнопка «Не помню».
+    ...(normalize(step.input) === "" ? { forgot: true } : {}),
+  };
   let speed: Speed = "normal";
   const elapsedMs = step.elapsedMs ?? null;
   if (

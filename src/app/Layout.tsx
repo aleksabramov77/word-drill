@@ -21,7 +21,7 @@ export function Layout() {
             <NavLink
               key={to}
               to={to}
-              end
+              end={to === "/"}
               className={({ isActive }) =>
                 cn(
                   "flex flex-1 flex-col items-center gap-0.5 py-2 text-xs",

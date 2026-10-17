@@ -28,8 +28,7 @@ test("лестница: ввод → подсказки по буквам → в
   await page.getByRole("link", { name: "Тренировка" }).click();
   await expect(page.getByRole("heading", { name: "кровь" })).toBeVisible();
   await expect(page.getByText("5 букв")).toBeVisible();
-  await page.getByLabel("Ответ по-английски").fill("xyz");
-  await page.getByRole("button", { name: "Проверить" }).click();
+  await page.getByRole("button", { name: "Не помню" }).click();
 
   const mask = page.getByTestId("hint-mask");
   await expect(page.getByText("Вспомни по подсказке:")).toBeVisible();
@@ -75,11 +74,12 @@ test("лестница: ввод → подсказки по буквам → в
   await expect(page.getByText("Почти! Знаешь, но с ошибкой")).toBeVisible();
   await page.getByRole("button", { name: "Дальше" }).click();
 
-  // «разочарование»: не помню → одна буква → вспомнил.
+  // «разочарование»: ошибся → одна буква → вспомнил (Hard — «с ошибками»).
   await expect(
     page.getByRole("heading", { name: "разочарование" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Не помню" }).click();
+  await page.getByLabel("Ответ по-английски").fill("frustr");
+  await page.getByRole("button", { name: "Проверить" }).click();
   await expect(mask.locator("span")).toHaveCount(11);
   await page.getByRole("button", { name: "Ещё буква" }).click();
   await expect(mask).toContainText("f");
