@@ -62,13 +62,37 @@ test("новая версия пришла посреди работы → пл�
   });
 });
 
-test("«Ещё» → «Проверить обновление»: уже последняя версия", async ({
+test("«Ещё» → «Проверить наличие обновлений»: уже последняя версия", async ({
   page,
 }) => {
   await openApp(page);
   await page.getByRole("link", { name: "Ещё", exact: true }).click();
-  await page.getByRole("button", { name: "Проверить обновление" }).click();
+  await page
+    .getByRole("button", { name: "Проверить наличие обновлений" })
+    .click();
   await expect(
     page.getByText(`У тебя последняя версия ${pkg.version}`),
   ).toBeVisible();
+});
+
+test("«Проверить наличие обновлений»: на сервере новее → кэш удалён, страница перезагружена", async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.getByRole("link", { name: "Ещё", exact: true }).click();
+  expect(
+    await page.evaluate(async () => (await caches.keys()).length),
+  ).toBeGreaterThan(0);
+  // Сервер «сообщает» более новую версию.
+  await page.route("**/api/health", (route) =>
+    route.fulfill({ json: { ok: true, version: "99.0.0" } }),
+  );
+  const reloaded = page.waitForEvent("load");
+  await page
+    .getByRole("button", { name: "Проверить наличие обновлений" })
+    .click();
+  await reloaded;
+  await page.getByRole("link", { name: "Ещё", exact: true }).waitFor();
+  // Service worker не удалён (вместе с ним пропала бы подписка на уведомления) — управляет страницей.
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
 });

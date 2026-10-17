@@ -4,7 +4,7 @@ import { APP_VERSION } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
 import { useAppUpdate } from "../model/appUpdate.ts";
 
-/** «Проверить обновление» — вместо «потянуть вниз», которого у приложения с экрана «Домой» нет. */
+/** «Проверить наличие обновлений» — вместо «потянуть вниз», которого у приложения с экрана «Домой» нет. */
 export function CheckUpdateButton() {
   const { checking, check } = useAppUpdate();
   return (
@@ -23,7 +23,7 @@ export function CheckUpdateButton() {
       }
     >
       <RefreshCw className={checking ? "animate-spin" : undefined} />
-      {checking ? "Проверяю…" : "Проверить обновление"}
+      {checking ? "Проверяю…" : "Проверить наличие обновлений"}
     </Button>
   );
 }

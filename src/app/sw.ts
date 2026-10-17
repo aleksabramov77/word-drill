@@ -15,6 +15,12 @@ cleanupOutdatedCaches();
 self.addEventListener("install", () => {
   void self.skipWaiting();
 });
+// «Проверить наличие обновлений» (src/features/app-update) — если новая версия всё же ждёт.
+self.addEventListener("message", (event) => {
+  if ((event.data as { type?: string } | null)?.type === "SKIP_WAITING") {
+    void self.skipWaiting();
+  }
+});
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
