@@ -18,8 +18,10 @@ import type { ReactNode } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import { useLogout, useMe } from "@/entities/session";
 import { ShortcutSetup } from "@/features/api-token";
+import { CheckUpdateButton } from "@/features/app-update";
 import { PushSettings } from "@/features/push-subscribe";
 import { ScheduleSettings } from "@/features/schedule-settings";
+import { APP_VERSION, BUILD_TIME } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
 import { InstallHelp } from "./help/InstallHelp.tsx";
 import { PushHelp } from "./help/PushHelp.tsx";
@@ -61,8 +63,8 @@ const GROUPS: Group[] = [
       },
       {
         slug: "shortcut",
-        title: "Ключ для «Команд»",
-        hint: "Для добавления слов со скриншота на iPhone",
+        title: "Команда для iPhone",
+        hint: "Скриншот → «Входящие» одним нажатием",
         icon: KeyRound,
         content: () => <ShortcutSetup />,
       },
@@ -162,9 +164,12 @@ export function MorePage() {
           hint="Что хранится и как удалить"
         />
       </MenuGroup>
-      <p className="text-center text-muted-foreground text-xs">
-        Версия от {formatBuildTime(import.meta.env.VITE_BUILD_TIME)}
-      </p>
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-center text-muted-foreground text-xs">
+          Версия {APP_VERSION} · от {formatBuildTime(BUILD_TIME)}
+        </p>
+        <CheckUpdateButton />
+      </div>
     </div>
   );
 }
@@ -244,7 +249,7 @@ function Account() {
   );
 }
 
-/** Время сборки (vite.config.ts → VITE_BUILD_TIME): по нему видно, что обновление пришло. */
+/** Время сборки (vite.config.ts → VITE_BUILD_TIME). */
 function formatBuildTime(iso: string | undefined): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("ru-RU", {

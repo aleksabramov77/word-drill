@@ -19,7 +19,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  # write — для тега версии после выкатки с main.
+  contents: write
 
 jobs:
   deploy:
@@ -64,3 +65,15 @@ jobs:
 
       - name: Выкатка
         run: bash scripts/deploy.sh
+
+      # Тег v<версия> на выкаченном коммите: по тегам видно, что и когда было на проде.
+      - name: Тег версии
+        if: github.event_name == 'workflow_run'
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "$tag уже есть"
+            exit 0
+          fi
+          git tag "$tag"
+          git push origin "$tag"

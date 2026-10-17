@@ -19,6 +19,10 @@ export const users = sqliteTable("users", {
   speedHistory: text("speed_history", { mode: "json" })
     .$type<SpeedSample[]>()
     .notNull(),
+  /** Версия приложения, которое последним обращалось к серверу (заголовок X-App-Version). */
+  appVersion: text("app_version"),
+  /** О какой версии уже прислали уведомление «Word Drill обновился». */
+  updateNotifiedVersion: text("update_notified_version"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
 

@@ -10,11 +10,10 @@ declare const self: ServiceWorkerGlobalScope & {
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-// Новая версия ждёт, пока на плашке нажмут «Обновить» (src/app/appUpdate.ts → updateSW шлёт SKIP_WAITING).
-self.addEventListener("message", (event) => {
-  if ((event.data as { type?: string } | null)?.type === "SKIP_WAITING") {
-    void self.skipWaiting();
-  }
+// Новая версия включается сразу, а открытая страница сама решает, когда перезагрузиться
+// (src/app/appUpdate.ts): сразу после запуска — сама, посреди ответа — плашкой «Обновить».
+self.addEventListener("install", () => {
+  void self.skipWaiting();
 });
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
@@ -35,13 +34,17 @@ self.addEventListener("push", (event) => {
     tag: "word",
   };
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      tag: data.tag,
-      data: { url: data.url },
-      icon: "/pwa-192x192.png",
-      badge: "/pwa-64x64.png",
-    }),
+    Promise.all([
+      self.registration.showNotification(data.title, {
+        body: data.body,
+        tag: data.tag,
+        data: { url: data.url },
+        icon: "/pwa-192x192.png",
+        badge: "/pwa-64x64.png",
+      }),
+      // Каждое уведомление заодно проверяет, не вышла ли новая версия: к нажатию она уже скачана.
+      self.registration.update().catch(() => undefined),
+    ]),
   );
 });
 

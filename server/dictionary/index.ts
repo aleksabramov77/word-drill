@@ -6,3 +6,4 @@ export {
   dictionarySchema,
 } from "./schema.ts";
 export { type SearchHit, searchDictionary, unitWords } from "./search.ts";
+export { otherForms, synonymsOf } from "./translations.ts";

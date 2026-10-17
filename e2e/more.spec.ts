@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import pkg from "../package.json" with { type: "json" };
 
 test("«Ещё»: группы настроек и справки, раздел и назад, конфиденциальность внутри приложения", async ({
   page,
@@ -9,7 +10,11 @@ test("«Ещё»: группы настроек и справки, раздел 
   for (const group of ["Настройки", "Справка", "О приложении"]) {
     await expect(page.getByRole("heading", { name: group })).toBeVisible();
   }
-  await expect(page.getByText(/^Версия от /)).toBeVisible();
+  await expect(
+    page.getByText(
+      new RegExp(`^Версия ${pkg.version.replaceAll(".", "\\.")} · от `),
+    ),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: /Расписание/ }).click();
   await expect(page).toHaveURL(/\/more\/schedule$/);

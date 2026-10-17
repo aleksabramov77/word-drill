@@ -246,3 +246,36 @@ describe("тренировка", () => {
     ).toBeNull();
   });
 });
+
+describe("несколько переводов", () => {
+  it("карточка показывает главную форму крупно, остальные формы из словаря — отдельно", () => {
+    const { db, userId, clock, add } = setup();
+    add("гораздо", ["by far"]);
+    const { card } = drillQueue(db, userId, clock.now(), {
+      dictionary: fixtureDictionary,
+    });
+    expect(card?.prompt).toBe("гораздо");
+    expect([...(card?.alsoPrompts ?? [])].sort()).toEqual(
+      ["далеко", "значительно", "намного"].sort(),
+    );
+  });
+
+  it("другой верный перевод: «тоже верно», заготовка без букв, потом верно — «Трудно»", () => {
+    const { add, step } = setup();
+    const word = add("гораздо", ["by far"]);
+    const synonym = step(word.id, "type", "a lot", { elapsedMs: 3000 });
+    expect(synonym.verdict).toBe("synonym");
+    expect(synonym.next).toBe("hint");
+    expect(synonym.revealed).toBe(0);
+
+    // Синоним и на шаге подсказок — не ошибка: буква не открывается.
+    const again = step(word.id, "hint", "far");
+    expect(again.verdict).toBe("synonym");
+    expect(again.next).toBe("hint");
+    expect(again.revealed ?? 0).toBe(0);
+
+    const done = step(word.id, "hint", "by far");
+    expect(done.next).toBe("done");
+    expect(done.outcome?.grade).toBe(Rating.Hard);
+  });
+});

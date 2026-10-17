@@ -12,7 +12,10 @@ describe("api", () => {
     const { app } = createTestApp();
     const res = await app.request("/api/health");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({
+      ok: true,
+      version: expect.stringMatching(/^\d+\.\d+\.\d+$/),
+    });
   });
 
   it("ищет в словаре", async () => {

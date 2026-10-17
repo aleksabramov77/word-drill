@@ -24,8 +24,8 @@ test("входящие: текст скриншота → подсказка п�
 
   // Токен показывается один раз.
   await page.getByRole("link", { name: "Ещё", exact: true }).click();
-  await page.getByRole("link", { name: /Ключ для «Команд»/ }).click();
-  await page.getByRole("button", { name: "Создать ключ" }).click();
+  await page.getByRole("link", { name: /Команда для iPhone/ }).click();
+  await page.getByRole("button", { name: "Установить команду" }).click();
   await expect(page.locator("code").filter({ hasText: /^wd_/ })).toBeVisible();
   await expect(page.getByText(/^wd_.{4}… · создан/)).toBeVisible();
 });

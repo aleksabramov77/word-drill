@@ -50,6 +50,8 @@ export interface WordView {
 export interface DrillCard {
   wordId: number;
   prompt: string;
+  /** Другие русские формы того же слова (по словарю), в случайном порядке. */
+  alsoPrompts: string[];
   /** Число букв ответа — для подсказки длины. */
   letters: number;
   isNew: boolean;

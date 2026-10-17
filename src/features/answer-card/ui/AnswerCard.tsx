@@ -23,9 +23,16 @@ const HINT_INTRO: Record<Verdict, string> = {
   correct: "",
   typo: "",
   partial: "Близко, но ошибок много. Вспомни по подсказке:",
+  // Заменяется сообщением с введённым словом — см. synonymIntro.
+  synonym: "Тоже верно, но здесь загадано другое слово:",
   "other-word": "Это перевод другого слова. Вспомни по подсказке:",
   wrong: "Вспомни по подсказке:",
 };
+
+/** Введён другой верный перевод: не ошибка, буквы не открываются. */
+function synonymIntro(input: string): string {
+  return `«${input.trim()}» — тоже верно! Но здесь загадано другое слово:`;
+}
 
 function TextAnswer({
   placeholder,
@@ -188,6 +195,11 @@ export function AnswerCard({
             )}
           </div>
           <h2 className="font-semibold text-3xl">{card.prompt}</h2>
+          {card.alsoPrompts.length > 0 && (
+            <p className="text-muted-foreground text-sm">
+              {card.alsoPrompts.join(" · ")}
+            </p>
+          )}
           {stage === "type" && !done && (
             <span className="text-muted-foreground text-sm">
               {card.letters} {plural(card.letters, "буква", "буквы", "букв")}
@@ -211,11 +223,13 @@ export function AnswerCard({
         ) : stage === "hint" ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm">
-              {hintTries > 0 && last?.correct === false
-                ? "Не то — открыл ещё одну букву:"
-                : last?.verdict
-                  ? HINT_INTRO[last.verdict]
-                  : "Вспомни по подсказке:"}
+              {last?.verdict === "synonym"
+                ? synonymIntro(lastInput)
+                : hintTries > 0 && last?.correct === false
+                  ? "Не то — открыл ещё одну букву:"
+                  : last?.verdict
+                    ? HINT_INTRO[last.verdict]
+                    : "Вспомни по подсказке:"}
             </p>
             <HintMask mask={mask} />
             <p className="text-muted-foreground text-xs">
