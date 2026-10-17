@@ -20,6 +20,14 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # У каждой выкатки свой номер: версия в package.json выше, чем в ветке, куда вливается PR.
+      - name: Версия поднята?
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          pnpm exec tsx scripts/check-version.ts "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
       - run: pnpm check
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium

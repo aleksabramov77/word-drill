@@ -46,8 +46,8 @@ npm install --omit=dev --no-audit --no-fund --loglevel=error
 sudo /usr/bin/systemctl enable $PROJECT
 sudo /usr/bin/systemctl restart $PROJECT
 for i in \$(seq 1 30); do
-  code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:$PORT/api/health || true)
-  if [ "\$code" = 200 ]; then echo "OK: $PROJECT → 127.0.0.1:$PORT/api/health 200"; exit 0; fi
+  code=\$(curl -s -o /tmp/$PROJECT-health.json -w '%{http_code}' --max-time 5 http://127.0.0.1:$PORT/api/health || true)
+  if [ "\$code" = 200 ]; then echo "OK: $PROJECT → 127.0.0.1:$PORT/api/health 200 \$(cat /tmp/$PROJECT-health.json)"; exit 0; fi
   sleep 2
 done
 sudo /usr/bin/journalctl -u $PROJECT -n 80 --no-pager

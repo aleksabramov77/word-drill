@@ -9,6 +9,8 @@ import { create } from "zustand";
 interface AppUpdateState {
   /** Новая версия скачана и ждёт включения. */
   ready: boolean;
+  /** Её номер — с сервера (/api/health): он уже работает на новой версии. */
+  version: string | null;
   updating: boolean;
   /** Включить новый service worker и перезагрузить страницу. */
   apply: () => void;
@@ -18,6 +20,7 @@ let updateSW: ((reload?: boolean) => Promise<void>) | null = null;
 
 export const useAppUpdate = create<AppUpdateState>()((set) => ({
   ready: false,
+  version: null,
   updating: false,
   apply: () => {
     set({ updating: true });
@@ -27,11 +30,24 @@ export const useAppUpdate = create<AppUpdateState>()((set) => ({
   },
 }));
 
+async function fetchServerVersion(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/health", { cache: "no-store" });
+    const body = (await res.json()) as { version?: unknown };
+    return typeof body.version === "string" ? body.version : null;
+  } catch {
+    return null;
+  }
+}
+
 export function registerAppUpdates() {
   updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
       useAppUpdate.setState({ ready: true });
+      void fetchServerVersion().then((version) =>
+        useAppUpdate.setState({ version }),
+      );
     },
     onRegisteredSW(_url, registration) {
       if (!registration) return;

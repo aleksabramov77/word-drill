@@ -3,11 +3,13 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
+import pkg from "./package.json" with { type: "json" };
 
 // В dev Vite отдаёт клиент, а /api проксирует на Hono (scripts/dev.ts задаёт API_PORT).
 // В проде клиент собирается в dist/client, и его раздаёт сам Hono (server/main.ts).
 const apiPort = process.env.API_PORT ?? "5100";
-// Время сборки — в «Настройках», чтобы было видно, что новая версия дошла до телефона.
+// Номер версии (package.json) и время сборки — внизу «Ещё», чтобы было видно, какая версия загружена.
+process.env.VITE_APP_VERSION ??= pkg.version;
 process.env.VITE_BUILD_TIME ??= new Date().toISOString();
 
 export default defineConfig({

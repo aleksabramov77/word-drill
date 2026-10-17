@@ -44,6 +44,7 @@ import {
   subscriptionSchema,
   updateSettings,
 } from "./push/service.ts";
+import { APP_VERSION } from "./version.ts";
 
 export interface AppDeps {
   db: Db;
@@ -109,7 +110,7 @@ export function createApp({
   });
   mountAdmin(app, { db, auth, now });
 
-  app.get("/health", (c) => c.json({ ok: true }));
+  app.get("/health", (c) => c.json({ ok: true, version: APP_VERSION }));
 
   app.get("/dictionary/search", (c) => {
     const parsed = searchQuerySchema.safeParse(c.req.query());

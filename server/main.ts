@@ -14,6 +14,7 @@ import {
 import { DEFAULT_DICTIONARY_PATH, loadDictionary } from "./dictionary/index.ts";
 import { createWebPushSender, readVapidConfig } from "./push/sender.ts";
 import { pushTick } from "./push/service.ts";
+import { APP_VERSION } from "./version.ts";
 
 const port = Number(process.env.PORT ?? 5100);
 const isProd = process.env.NODE_ENV === "production";
@@ -51,7 +52,7 @@ if (isProd) {
 
 serve({ fetch: root.fetch, port, hostname: "127.0.0.1" }, (info) => {
   console.log(
-    `[word-drill] API: http://127.0.0.1:${info.port}, вход: ${auth.mode}, уведомления: ${pusher ? "вкл" : "выкл (нет VAPID)"}, словарь: ${dictionary.words.length} слов, БД: ${databasePath}`,
+    `[word-drill] ${APP_VERSION} API: http://127.0.0.1:${info.port}, вход: ${auth.mode}, уведомления: ${pusher ? "вкл" : "выкл (нет VAPID)"}, словарь: ${dictionary.words.length} слов, БД: ${databasePath}`,
   );
 });
 

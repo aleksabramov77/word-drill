@@ -20,6 +20,7 @@ import { useLogout, useMe } from "@/entities/session";
 import { ShortcutSetup } from "@/features/api-token";
 import { PushSettings } from "@/features/push-subscribe";
 import { ScheduleSettings } from "@/features/schedule-settings";
+import { APP_VERSION, BUILD_TIME } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
 import { InstallHelp } from "./help/InstallHelp.tsx";
 import { PushHelp } from "./help/PushHelp.tsx";
@@ -163,7 +164,7 @@ export function MorePage() {
         />
       </MenuGroup>
       <p className="text-center text-muted-foreground text-xs">
-        Версия от {formatBuildTime(import.meta.env.VITE_BUILD_TIME)}
+        Версия {APP_VERSION} · от {formatBuildTime(BUILD_TIME)}
       </p>
     </div>
   );
@@ -244,7 +245,7 @@ function Account() {
   );
 }
 
-/** Время сборки (vite.config.ts → VITE_BUILD_TIME): по нему видно, что обновление пришло. */
+/** Время сборки (vite.config.ts → VITE_BUILD_TIME). */
 function formatBuildTime(iso: string | undefined): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("ru-RU", {
