@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("админка: пустить почту заранее и закрыть доступ", async ({ page }) => {
   await page.goto("/settings");
-  await page.getByRole("link", { name: "Админка: заявки и доступ" }).click();
+  await page.getByRole("link", { name: /Админка/ }).click();
   await expect(page.getByRole("heading", { name: "Заявки (0)" })).toBeVisible();
 
   await page.getByLabel("Почта Google").fill("Friend@Gmail.com");

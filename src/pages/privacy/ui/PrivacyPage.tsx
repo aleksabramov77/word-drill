@@ -1,7 +1,7 @@
 /** Политика конфиденциальности — открыта всем (её требует Google для входа через Google). */
 export function PrivacyPage() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 p-4 text-sm leading-relaxed">
+    <article className="flex flex-col gap-4 text-sm leading-relaxed">
       <h1 className="font-semibold text-2xl">Конфиденциальность</h1>
       <p>
         Word Drill — личный тренажёр английских слов для небольшого круга людей.
@@ -35,6 +35,6 @@ export function PrivacyPage() {
       <a href="/" className="underline">
         На главную
       </a>
-    </main>
+    </article>
   );
 }
