@@ -16,6 +16,7 @@ import { WordsPage } from "@/pages/words";
 import { queryClient } from "@/shared/api";
 import { Layout } from "./Layout.tsx";
 import { useOpenFromNotification } from "./openFromNotification.ts";
+import { UpdateBanner } from "./UpdateBanner.tsx";
 
 const router = createBrowserRouter([
   {
@@ -75,6 +76,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthGate />
+      <UpdateBanner />
     </QueryClientProvider>
   );
 }

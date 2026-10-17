@@ -10,8 +10,11 @@ declare const self: ServiceWorkerGlobalScope & {
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
-self.addEventListener("install", () => {
-  void self.skipWaiting();
+// Новая версия ждёт, пока на плашке нажмут «Обновить» (src/app/appUpdate.ts → updateSW шлёт SKIP_WAITING).
+self.addEventListener("message", (event) => {
+  if ((event.data as { type?: string } | null)?.type === "SKIP_WAITING") {
+    void self.skipWaiting();
+  }
 });
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
