@@ -35,7 +35,11 @@ import {
 } from "../../src/shared/lib/srs/index.ts";
 import type { Db } from "../db/client.ts";
 import { reviews, users, words } from "../db/schema.ts";
-import type { Dictionary } from "../dictionary/index.ts";
+import {
+  type Dictionary,
+  otherForms,
+  synonymsOf,
+} from "../dictionary/index.ts";
 import type {
   Attempt,
   DrillQueue,
@@ -210,12 +214,15 @@ export function drillQueue(
     includeNew = true,
     prefer,
     newAddedBefore,
+    dictionary,
   }: {
     includeNew?: boolean;
     /** Слово из уведомления — показать его первым. */
     prefer?: number;
     /** Новые слова — только добавленные раньше этого момента (уведомления не шлют слово, которое только что добавили). */
     newAddedBefore?: Date;
+    /** Словарь — для других русских форм слова на карточке. */
+    dictionary?: Dictionary;
   } = {},
 ): DrillQueue {
   const rows = userWords(db, userId).map((row) => ({
@@ -254,6 +261,15 @@ export function drillQueue(
       ? {
           wordId: pick.row.id,
           prompt: pick.row.prompt,
+          alsoPrompts: dictionary
+            ? shuffle(
+                otherForms(
+                  dictionary,
+                  pick.row.answers[0] ?? "",
+                  pick.row.prompt,
+                ),
+              )
+            : [],
           letters: letterCount(pick.row.answers[0] ?? ""),
           isNew: pick.card.state === State.New,
           hot: isHot(pick.card),
@@ -334,8 +350,18 @@ function finish(
   };
 }
 
+/** Другие переводы того, что показано на карточке (главная форма и остальные по словарю). */
+function cardSynonyms(dictionary: Dictionary, row: WordRow): string[] {
+  const forms = [
+    row.prompt,
+    ...otherForms(dictionary, row.answers[0] ?? "", row.prompt),
+  ];
+  return synonymsOf(dictionary, forms, row.answers);
+}
+
 function typeStep(
   db: Db,
+  dictionary: Dictionary,
   userId: string,
   row: WordRow,
   step: StepInput,
@@ -344,6 +370,7 @@ function typeStep(
     step.input,
     row.answers,
     otherAnswers(db, userId, row.id),
+    cardSynonyms(dictionary, row),
   );
   const result: StageResult = {
     stage: "type",
@@ -382,6 +409,7 @@ function typeStep(
 
 /** Шаг подсказок: открыть букву, перейти к вариантам или проверить ответ (неверный — открывает ещё букву). */
 function hintStep(
+  dictionary: Dictionary,
   row: WordRow,
   step: StepInput,
   attempt: Attempt,
@@ -406,9 +434,15 @@ function hintStep(
       revealed,
     };
   }
-  const checked = checkAnswer(step.input, row.answers);
+  const checked = checkAnswer(
+    step.input,
+    row.answers,
+    [],
+    cardSynonyms(dictionary, row),
+  );
   const correct = checked.verdict === "correct" || checked.verdict === "typo";
-  if (correct)
+  // Синоним — не ошибка: буква не открывается, просто «загадано другое слово».
+  if (correct || checked.verdict === "synonym")
     return {
       result: { stage: "hint", correct, exhausted: false },
       revealed,
@@ -437,7 +471,13 @@ export function answerStep(
   let checked: CheckResult | undefined;
 
   if (step.stage === "type") {
-    ({ result, attempt, checked } = typeStep(db, userId, row, step));
+    ({ result, attempt, checked } = typeStep(
+      db,
+      dictionary,
+      userId,
+      row,
+      step,
+    ));
   } else {
     // Шаги ниже ввода продолжают начатый показ; без него (страница открыта заново) — считаем, что ввод не удался.
     const current: Attempt = row.attempt ?? {
@@ -450,7 +490,12 @@ export function answerStep(
     };
     let revealed = current.revealed;
     if (step.stage === "hint") {
-      ({ result, revealed, checked } = hintStep(row, step, current));
+      ({ result, revealed, checked } = hintStep(
+        dictionary,
+        row,
+        step,
+        current,
+      ));
     } else {
       const correct =
         step.stage === "choice"

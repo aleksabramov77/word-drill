@@ -20,5 +20,14 @@ export const fixtureDictionary: Dictionary = {
     { en: "coffee", ru: ["кофе"], units: [1], missing: false },
     { en: "ice", ru: ["лёд", "льда"], units: [1], missing: false },
     { en: "milk", ru: ["молоко", "молока"], units: [1, 2], missing: false },
+    // Синонимы: у одних русских слов несколько английских переводов.
+    {
+      en: "by far",
+      ru: ["значительно", "гораздо", "намного", "далеко"],
+      units: [3],
+      missing: false,
+    },
+    { en: "a lot", ru: ["гораздо", "много"], units: [3], missing: false },
+    { en: "far", ru: ["далеко", "дальний"], units: [3], missing: false },
   ],
 };
