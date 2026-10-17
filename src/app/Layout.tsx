@@ -1,4 +1,4 @@
-import { BookOpen, Dumbbell } from "lucide-react";
+import { BookOpen, Dumbbell, Settings } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 import { cn } from "@/shared/lib/utils";
 import { Toaster } from "@/shared/ui/sonner";
@@ -6,6 +6,7 @@ import { Toaster } from "@/shared/ui/sonner";
 const NAV = [
   { to: "/", label: "Тренировка", icon: Dumbbell },
   { to: "/words", label: "Слова", icon: BookOpen },
+  { to: "/settings", label: "Настройки", icon: Settings },
 ] as const;
 
 export function Layout() {
@@ -20,7 +21,7 @@ export function Layout() {
             <NavLink
               key={to}
               to={to}
-              end
+              end={to === "/"}
               className={({ isActive }) =>
                 cn(
                   "flex flex-1 flex-col items-center gap-0.5 py-2 text-xs",

@@ -21,7 +21,8 @@ export function deeperStage(a: Stage, b: Stage): Stage {
 }
 
 export type StageResult =
-  | { stage: "type"; verdict: Verdict }
+  /** forgot — нажата «Не помню» (пустой ввод): показ оценивается низшим баллом, что бы ни было дальше. */
+  | { stage: "type"; verdict: Verdict; forgot?: boolean }
   /** exhausted — подсказок больше не дать или открыто больше половины, а ответа нет; giveUp — «Варианты». */
   | { stage: "hint"; correct: boolean; exhausted: boolean; giveUp?: boolean }
   | { stage: "choice" | "show"; correct: boolean };
@@ -65,12 +66,14 @@ export interface AttemptSummary {
  * Итог показа → оценка FSRS:
  * - ввод: верно и быстро — Easy, верно — Good, медленно или с опечаткой — Hard;
  * - подсказки: только заготовка или открыто ≤ 25% букв — Hard, больше — Again;
- * - выбор или показ — Again.
+ * - выбор или показ — Again;
+ * - «Не помню» — Again, даже если потом вспомнил по подсказкам.
  */
 export function gradeAttempt(
   { first, deepest, revealed, letters }: AttemptSummary,
   speed: Speed,
 ): ReviewGrade {
+  if (first.stage === "type" && first.forgot) return Rating.Again;
   if (deepest === "choice" || deepest === "show") return Rating.Again;
   if (deepest === "hint") {
     return revealed / Math.max(1, letters) <= HARD_HINT_SHARE

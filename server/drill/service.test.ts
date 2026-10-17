@@ -118,11 +118,11 @@ describe("тренировка", () => {
     expect(result.outcome?.status).toBe("errors");
   });
 
-  it("не помню → заготовка; одна подсказка из 11 букв и верный ответ — Hard", () => {
+  it("неверный ввод → заготовка; одна подсказка из 11 букв и верный ответ — Hard", () => {
     const { add, step } = setup();
     const word = add("разочарование", ["frustration"]);
 
-    const typed = step(word.id, "type", "");
+    const typed = step(word.id, "type", "frustr");
     expect(typed).toMatchObject({
       verdict: "wrong",
       next: "hint",
@@ -138,6 +138,15 @@ describe("тренировка", () => {
     const solved = step(word.id, "hint", "frustration");
     expect(solved.next).toBe("done");
     expect(solved.outcome?.grade).toBe(Rating.Hard);
+  });
+
+  it("«Не помню» — Again, даже если потом вспомнил по одной букве", () => {
+    const { add, step } = setup();
+    const word = add("разочарование", ["frustration"]);
+    expect(step(word.id, "type", "")).toMatchObject({ next: "hint" });
+    step(word.id, "hint", "", { action: "reveal" });
+    const solved = step(word.id, "hint", "frustration");
+    expect(solved.outcome?.grade).toBe(Rating.Again);
   });
 
   it("каждая неверная попытка с подсказками открывает букву; больше 25% — Again", () => {
