@@ -1,5 +1,4 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { useMe } from "@/entities/session";
 import { AdminPage } from "@/pages/admin";
@@ -10,6 +9,7 @@ import { SettingsPage } from "@/pages/settings";
 import { WordsPage } from "@/pages/words";
 import { queryClient } from "@/shared/api";
 import { Layout } from "./Layout.tsx";
+import { useOpenFromNotification } from "./openFromNotification.ts";
 
 const router = createBrowserRouter([
   {
@@ -54,25 +54,10 @@ function SignedIn() {
   return <RouterProvider router={router} />;
 }
 
-/** Нажатие на уведомление при открытом приложении: service worker присылает адрес — переходим (src/app/sw.ts). */
-function useOpenFromNotification() {
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    const onMessage = (event: MessageEvent) => {
-      const data = event.data as { type?: string; url?: string } | null;
-      if (data?.type !== "open-url" || !data.url) return;
-      const url = new URL(data.url, window.location.origin);
-      if (url.origin !== window.location.origin) return;
-      void router.navigate(`${url.pathname}${url.search}`);
-    };
-    navigator.serviceWorker.addEventListener("message", onMessage);
-    return () =>
-      navigator.serviceWorker.removeEventListener("message", onMessage);
-  }, []);
-}
+const openPath = (path: string) => void router.navigate(path);
 
 export function App() {
-  useOpenFromNotification();
+  useOpenFromNotification(openPath);
   return (
     <QueryClientProvider client={queryClient}>
       <AuthGate />
