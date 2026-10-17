@@ -14,6 +14,7 @@ import {
 import { DEFAULT_DICTIONARY_PATH, loadDictionary } from "./dictionary/index.ts";
 import { createWebPushSender, readVapidConfig } from "./push/sender.ts";
 import { pushTick } from "./push/service.ts";
+import { announceUpdate } from "./push/update.ts";
 import { APP_VERSION } from "./version.ts";
 
 const port = Number(process.env.PORT ?? 5100);
@@ -45,6 +46,20 @@ root.route(
   }),
 );
 if (isProd) {
+  // Готовая команда iOS (scripts/build-shortcut.ts): отдаётся файлом — по его имени «Команды» называют команду.
+  root.get(
+    "/word-drill.shortcut",
+    serveStatic({
+      path: "./dist/client/word-drill.shortcut",
+      onFound: (_path, c) => {
+        c.header("Content-Type", "application/octet-stream");
+        c.header(
+          "Content-Disposition",
+          "attachment; filename=\"Word Drill.shortcut\"; filename*=UTF-8''Word%20Drill.shortcut",
+        );
+      },
+    }),
+  );
   // SPA: файлы из dist/client, всё остальное — index.html (маршруты решает клиент).
   root.use("/*", serveStatic({ root: "./dist/client" }));
   root.get("/*", serveStatic({ path: "./dist/client/index.html" }));
@@ -63,7 +78,14 @@ async function tick() {
   if (!pusher || ticking) return;
   ticking = true;
   try {
-    const { sent } = await pushTick(db, pusher, new Date());
+    const now = new Date();
+    const updates = await announceUpdate(db, pusher, APP_VERSION, now);
+    if (updates > 0) {
+      console.log(
+        `[word-drill] уведомлений об обновлении ${APP_VERSION}: ${updates}`,
+      );
+    }
+    const { sent } = await pushTick(db, pusher, now);
     if (sent > 0) console.log(`[word-drill] уведомлений отправлено: ${sent}`);
   } catch (error) {
     console.error("[word-drill] ошибка планировщика уведомлений", error);

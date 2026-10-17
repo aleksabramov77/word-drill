@@ -1,11 +1,11 @@
 import { RefreshCw } from "lucide-react";
 import { APP_VERSION } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
-import { useAppUpdate } from "./appUpdate.ts";
+import { useAppUpdate } from "../model/appUpdate.ts";
 
-/** Плашка «Вышло обновление» сверху экрана; «Обновить» включает новую версию и перезагружает страницу. */
+/** Плашка «Вышло обновление» сверху экрана — если новая версия пришла посреди ответа. */
 export function UpdateBanner() {
-  const { ready, version, updating, apply } = useAppUpdate();
+  const { ready, version, apply } = useAppUpdate();
   if (!ready) return null;
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-50 px-4 pt-[max(0.5rem,env(safe-area-inset-top))]">
@@ -22,8 +22,8 @@ export function UpdateBanner() {
             </span>
           )}
         </p>
-        <Button size="sm" disabled={updating} onClick={apply}>
-          {updating ? "Обновляю…" : "Обновить"}
+        <Button size="sm" onClick={apply}>
+          Обновить
         </Button>
       </div>
     </div>

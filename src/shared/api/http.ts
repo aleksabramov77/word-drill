@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { APP_VERSION } from "@/shared/config";
 
 export class ApiError extends Error {
   constructor(
@@ -22,8 +23,11 @@ export async function apiFetch<T = void>(
 ): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
-    headers:
-      body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: {
+      // Версия приложения: сервер не зовёт обновляться тех, у кого уже новая.
+      "X-App-Version": APP_VERSION,
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
     credentials: "same-origin",
   });

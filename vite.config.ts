@@ -21,7 +21,7 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src/app",
       filename: "sw.ts",
-      registerType: "prompt",
+      // Регистрирует сам src/features/app-update (своя логика обновления).
       injectRegister: false,
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],

@@ -23,52 +23,65 @@ export function ScreenshotHelp() {
       </p>
 
       <H2>iPhone: команда «скриншот → Word Drill»</H2>
-      <p>
-        Один раз собираешь команду в приложении «Команды», дальше — одно
-        нажатие.
-      </p>
+      <p>Готовая команда ставится одной кнопкой, собирать ничего не нужно.</p>
       <Steps>
         <li>
-          Создай ключ:{" "}
+          Открой{" "}
           <Link to="/more/shortcut" className="underline">
-            «Ещё» → «Ключ для «Команд»»
-          </Link>
-          .
+            «Ещё» → «Команда для iPhone»
+          </Link>{" "}
+          и нажми «Установить команду» — ключ скопируется сам.
         </li>
+        <li>Откроются «Команды»: вставь ключ в поле и нажми «Добавить».</li>
         <li>
-          «Команды» → «+» (новая команда). Добавь действие{" "}
-          <b>Take Screenshot</b>.
-        </li>
-        <li>
-          Действие <b>Extract Text from Image</b> — из скриншота.
-        </li>
-        <li>
-          Действие <b>Get Contents of URL</b>: адрес{" "}
-          <code className="break-all">{inboxUrl}</code>{" "}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 px-1"
-            aria-label="Скопировать адрес"
-            onClick={() => copy(inboxUrl)}
-          >
-            <Copy />
-          </Button>
-          , метод POST, заголовок <code>Authorization</code> ={" "}
-          <code>Bearer &lt;ключ&gt;</code>, тело — JSON с полем{" "}
-          <code>text</code> = текст из шага 3.
-        </li>
-        <li>
-          Запускай кнопкой действия (iPhone 15 Pro и новее) или двойным касанием
-          задней панели (Настройки → Универсальный доступ → Касание).
+          Запускай команду «Word Drill» кнопкой действия (iPhone 15 Pro и новее)
+          или двойным касанием задней панели (Настройки → Универсальный доступ →
+          Касание).
         </li>
       </Steps>
-      <Note>
-        Названия действий даны по-английски: русские названия в «Командах» не
-        сверены — в русском интерфейсе ищи действие поиском по словам «снимок»,
-        «текст», «URL». Для выделенного текста подойдёт та же команда без шагов
-        2–3, с включённым «Показывать в меню „Поделиться“».
-      </Note>
+      <p>
+        Команда делает снимок экрана, распознаёт на нём текст, отправляет его во
+        «Входящие» и показывает уведомление «Текст отправлен».
+      </p>
+
+      <details className="rounded-lg border p-3">
+        <summary className="cursor-pointer font-medium">
+          Если команда не установилась — собрать вручную
+        </summary>
+        <div className="mt-2 flex flex-col gap-2">
+          <Steps>
+            <li>
+              Создай ключ на странице «Команда для iPhone» (если файл не
+              открылся, он показан там же).
+            </li>
+            <li>
+              «Команды» → «+». Добавь действия по порядку:{" "}
+              <b>Take Screenshot</b>, затем <b>Extract Text from Image</b>.
+            </li>
+            <li>
+              Третьим — <b>Get Contents of URL</b>: адрес{" "}
+              <code className="break-all">{inboxUrl}</code>{" "}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-1"
+                aria-label="Скопировать адрес"
+                onClick={() => copy(inboxUrl)}
+              >
+                <Copy />
+              </Button>
+              , метод POST, заголовок <code>Authorization</code> ={" "}
+              <code>Bearer &lt;ключ&gt;</code>, тело JSON: поле{" "}
+              <code>text</code> = переменная «Текст» из шага 2.
+            </li>
+          </Steps>
+          <Note>
+            Порядок важен: распознать текст нужно до отправки. Названия действий
+            даны по-английски — в русском интерфейсе ищи их поиском по словам
+            «снимок», «текст», «URL».
+          </Note>
+        </div>
+      </details>
 
       <H2>Android: «Поделиться» → Word Drill</H2>
       <p>
