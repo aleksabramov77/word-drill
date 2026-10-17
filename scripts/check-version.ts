@@ -2,7 +2,7 @@
 // Так у каждой выкатки свой номер. Запуск: tsx scripts/check-version.ts origin/main
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { compareVersions } from "./lib/semver.ts";
+import { compareVersions } from "../src/shared/lib/semver/index.ts";
 
 const baseRef = process.argv[2];
 if (!baseRef) {

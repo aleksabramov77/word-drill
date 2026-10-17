@@ -145,7 +145,7 @@ export function pushHistory(
   };
 }
 
-async function deliver(
+export async function deliver(
   db: Db,
   sender: PushSender,
   userId: string,

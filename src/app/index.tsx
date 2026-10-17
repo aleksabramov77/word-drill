@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { registerAppUpdates } from "@/features/app-update";
 import { App } from "./App.tsx";
-import { registerAppUpdates } from "./appUpdate.ts";
 import "./styles/index.css";
 
 // Service worker нужен для уведомлений; новая версия включается по плашке «Обновить».
