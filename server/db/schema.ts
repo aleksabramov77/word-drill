@@ -6,6 +6,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import type { SpeedSample } from "../../src/shared/lib/srs/index.ts";
+import type { AccessStatus } from "../auth/access.ts";
 import type { Attempt, StoredCard, WordSource } from "../drill/types.ts";
 import type { UserSettings } from "../users.ts";
 
@@ -33,6 +34,49 @@ export const sessions = sqliteTable(
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [index("sessions_user").on(t.userId)],
+);
+
+/**
+ * Кто может входить (кроме ALLOWED_EMAILS — админов): заявки и решения админа.
+ * pending — заявка ждёт решения; approved — пускать; denied — не пускать.
+ */
+export const access = sqliteTable("access", {
+  email: text("email").primaryKey(),
+  status: text("status").$type<AccessStatus>().notNull(),
+  name: text("name").notNull().default(""),
+  requestedAt: integer("requested_at", { mode: "timestamp_ms" }),
+  decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
+});
+
+/** Личные токены для «Команд» iOS и других скриптов (Authorization: Bearer). В базе — только хэш. */
+export const apiTokens = sqliteTable(
+  "api_tokens",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    hash: text("hash").notNull().unique(),
+    /** Первые символы токена — чтобы отличать токены в списке. */
+    prefix: text("prefix").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("api_tokens_user").on(t.userId)],
+);
+
+/** «Входящие»: текст со скриншота или из «Поделиться» — из него предлагаются слова. */
+export const inbox = sqliteTable(
+  "inbox",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("inbox_user").on(t.userId, t.createdAt)],
 );
 
 export const pushSubscriptions = sqliteTable(

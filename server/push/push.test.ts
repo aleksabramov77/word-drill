@@ -5,6 +5,7 @@ import type { PushPayload, PushSender, PushTarget } from "./sender.ts";
 import { pushTick } from "./service.ts";
 
 const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
 
 function fakeSender(gone = new Set<string>()) {
   const sent: { target: PushTarget; payload: PushPayload }[] = [];
@@ -109,9 +110,13 @@ describe("подписка и настройки", () => {
 });
 
 describe("планировщик", () => {
-  it("присылает новое слово, потом выдерживает паузу", async () => {
+  it("только что добавленное слово не присылает; через час — да, потом пауза", async () => {
     const { add, tick, sent, clock } = await setup();
     const word = add("кровь", "blood");
+    expect(await tick()).toEqual({ sent: 0 });
+    clock.advance(59 * MINUTE);
+    expect(await tick()).toEqual({ sent: 0 });
+    clock.advance(1 * MINUTE);
     expect(await tick()).toEqual({ sent: 1 });
     expect(sent[0]?.payload).toEqual({
       title: "Как по-английски?",
@@ -127,6 +132,7 @@ describe("планировщик", () => {
   it("без ответа пауза растёт; ответ её сбрасывает", async () => {
     const { add, tick, clock, app } = await setup();
     const word = add("кровь", "blood");
+    clock.advance(HOUR);
     expect((await tick()).sent).toBe(1); // 0 мин
     clock.advance(20 * MINUTE);
     expect((await tick()).sent).toBe(0); // одно без ответа — пауза уже 40 минут
@@ -149,6 +155,7 @@ describe("планировщик", () => {
     await app.request("/api/settings", json({ newPerDay: 1 }, "PATCH"));
     add("кровь", "blood");
     add("вода", "water");
+    clock.advance(HOUR);
     expect((await tick()).sent).toBe(1);
     clock.advance(30 * MINUTE);
     expect((await tick()).sent).toBe(0); // второе новое — уже завтра
@@ -166,7 +173,7 @@ describe("планировщик", () => {
       ctx.db,
       ctx.userId,
       { prompt: "кровь", answers: ["blood"], source: "manual" },
-      noon,
+      new Date(noon.getTime() - HOUR),
     );
     expect(
       (await pushTick(ctx.db, sender, new Date("2026-10-17T20:00:00Z"))).sent,

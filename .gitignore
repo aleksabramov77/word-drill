@@ -8,3 +8,4 @@ test-results
 playwright-report
 .claude/worktrees
 .DS_Store
+.deploy

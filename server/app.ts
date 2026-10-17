@@ -1,8 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { mountAdmin } from "./admin/routes.ts";
 import type { AuthConfig } from "./auth/config.ts";
 import type { IdentityProvider } from "./auth/google.ts";
 import { type AuthEnv, mountAuth } from "./auth/routes.ts";
+import {
+  createApiToken,
+  deleteApiToken,
+  listApiTokens,
+} from "./auth/tokens.ts";
 import type { Db } from "./db/client.ts";
 import {
   type Dictionary,
@@ -19,11 +25,18 @@ import {
   updateWord,
   updateWordSchema,
 } from "./drill/service.ts";
+import {
+  addInboxItem,
+  deleteInboxItem,
+  inboxInputSchema,
+  listInbox,
+} from "./inbox/service.ts";
 import type { PushSender } from "./push/sender.ts";
 import {
   deleteSubscription,
   getSettings,
   markPushesAnswered,
+  notifyEmails,
   saveSubscription,
   sendTestPush,
   settingsSchema,
@@ -75,7 +88,26 @@ export function createApp({
   now = () => new Date(),
 }: AppDeps) {
   const app = new Hono<AuthEnv>().basePath("/api");
-  mountAuth(app, { db, auth, identity, now });
+  const admins = auth.mode === "google" ? [...auth.allowedEmails] : [];
+  mountAuth(app, {
+    db,
+    auth,
+    identity,
+    now,
+    onAccessRequest: pusher
+      ? async (person) => {
+          await notifyEmails(db, pusher, admins, {
+            title: "Заявка на вход в Word Drill",
+            body: person.name
+              ? `${person.name} · ${person.email}`
+              : person.email,
+            url: "/admin",
+            tag: "access",
+          });
+        }
+      : undefined,
+  });
+  mountAdmin(app, { db, auth, now });
 
   app.get("/health", (c) => c.json({ ok: true }));
 
@@ -200,6 +232,50 @@ export function createApp({
     return c.json({
       delivered: await sendTestPush(db, pusher, c.get("userId")),
     });
+  });
+
+  app.get("/tokens", (c) =>
+    c.json({ tokens: listApiTokens(db, c.get("userId")) }),
+  );
+
+  app.post("/tokens", (c) =>
+    c.json({ token: createApiToken(db, c.get("userId"), now()) }, 201),
+  );
+
+  app.delete("/tokens/:id", (c) => {
+    const id = idSchema.safeParse(c.req.param("id"));
+    if (!id.success) return c.json({ error: "bad id" }, 400);
+    return deleteApiToken(db, c.get("userId"), id.data)
+      ? c.body(null, 204)
+      : c.json({ error: "not found" }, 404);
+  });
+
+  app.get("/inbox", (c) =>
+    c.json({ items: listInbox(db, dictionary, c.get("userId")) }),
+  );
+
+  // Текст — JSON {"text": "..."} или просто тело text/plain («Команды» iOS шлют и так, и так).
+  app.post("/inbox", async (c) => {
+    const isJson = c.req.header("content-type")?.includes("application/json");
+    const raw = isJson ? await body(c.req) : { text: await c.req.text() };
+    const parsed = inboxInputSchema.safeParse(raw);
+    if (!parsed.success) return c.json({ error: "bad text" }, 400);
+    const item = addInboxItem(
+      db,
+      dictionary,
+      c.get("userId"),
+      parsed.data.text,
+      now(),
+    );
+    return c.json({ item }, 201);
+  });
+
+  app.delete("/inbox/:id", (c) => {
+    const id = idSchema.safeParse(c.req.param("id"));
+    if (!id.success) return c.json({ error: "bad id" }, 400);
+    return deleteInboxItem(db, c.get("userId"), id.data)
+      ? c.body(null, 204)
+      : c.json({ error: "not found" }, 404);
   });
 
   return app;
