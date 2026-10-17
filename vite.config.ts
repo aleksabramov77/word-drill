@@ -19,7 +19,7 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src/app",
       filename: "sw.ts",
-      registerType: "autoUpdate",
+      registerType: "prompt",
       injectRegister: false,
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
