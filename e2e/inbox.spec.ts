@@ -22,10 +22,21 @@ test("входящие: текст скриншота → подсказка п�
     page.getByText("молоко — milk", { exact: false }).last(),
   ).toBeVisible();
 
-  // Токен показывается один раз.
+  // Ключ: без доступа к буферу показывается один раз; новый заменяет прежний.
   await page.getByRole("link", { name: "Ещё", exact: true }).click();
   await page.getByRole("link", { name: /Команда для iPhone/ }).click();
-  await page.getByRole("button", { name: "Установить команду" }).click();
+  await page.getByRole("button", { name: "Скопировать ключ" }).click();
   await expect(page.locator("code").filter({ hasText: /^wd_/ })).toBeVisible();
-  await expect(page.getByText(/^wd_.{4}… · создан/)).toBeVisible();
+  await expect(
+    page.getByText(/^Ключ создан .* ещё не присылала/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Скопировать ключ" }).click();
+  const { tokens } = await (await page.request.get("/api/tokens")).json();
+  expect(tokens).toHaveLength(1);
+  // Файл команды — в отдельном окне: из экрана файла внутри приложения не выйти.
+  await expect(
+    page.getByRole("link", { name: "Установить команду" }),
+  ).toHaveAttribute("target", "_blank");
+  await page.getByRole("button", { name: "Отключить команду" }).click();
+  await expect(page.getByText(/^Ключ создан/)).toBeHidden();
 });
