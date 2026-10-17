@@ -17,8 +17,9 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <DrillPage /> },
       { path: "/words", element: <WordsPage /> },
-      { path: "/settings", element: <SettingsPage /> },
+      { path: "/settings/:section?", element: <SettingsPage /> },
       { path: "/admin", element: <AdminPage /> },
+      { path: "/privacy", element: <PrivacyPage /> },
       { path: "*", element: <DrillPage /> },
     ],
   },
@@ -26,7 +27,13 @@ const router = createBrowserRouter([
 
 /** Без входа — только экран входа и политика конфиденциальности; приложение грузится после /api/auth/me. */
 function AuthGate() {
-  if (window.location.pathname === "/privacy") return <PrivacyPage />;
+  if (window.location.pathname === "/privacy") {
+    return (
+      <main className="mx-auto min-h-dvh max-w-md p-4">
+        <PrivacyPage />
+      </main>
+    );
+  }
   return <SignedIn />;
 }
 
