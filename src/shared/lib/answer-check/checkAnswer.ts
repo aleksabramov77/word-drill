@@ -32,7 +32,8 @@ function forms(text: string): readonly [string, string] {
   return [full, stripOptional(full)];
 }
 
-function letterCount(text: string): number {
+/** Число букв ответа без артикля, `to` и пробелов — для подсказки длины и оценки скорости. */
+export function letterCount(text: string): number {
   return stripOptional(normalize(text)).replaceAll(" ", "").length;
 }
 

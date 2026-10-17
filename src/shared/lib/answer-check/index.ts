@@ -2,6 +2,7 @@ export {
   allowedTypos,
   type CheckResult,
   checkAnswer,
+  letterCount,
   type Verdict,
 } from "./checkAnswer.ts";
 export { areAdjacentKeys, typoDistance } from "./distance.ts";

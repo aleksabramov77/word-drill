@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1792234168237,
+      "tag": "0000_fair_junta",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792234549301,
+      "tag": "0001_fancy_nighthawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792234867867,
+      "tag": "0002_tidy_famine",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792235359559,
+      "tag": "0003_mushy_shriek",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792241427957,
+      "tag": "0004_regular_senator_kelly",
+      "breakpoints": true
+    }
+  ]
+}
