@@ -10,16 +10,20 @@ function hash(token: string): string {
 }
 
 /** Новый токен; показывается один раз — в базе остаётся только хэш. */
+/** Новый ключ заменяет прежние: у пользователя один ключ — для одной команды «скриншот → Word Drill». */
 export function createApiToken(db: Db, userId: string, now: Date): string {
   const token = `${TOKEN_PREFIX}${randomBytes(24).toString("base64url")}`;
-  db.insert(apiTokens)
-    .values({
-      userId,
-      hash: hash(token),
-      prefix: token.slice(0, TOKEN_PREFIX.length + 4),
-      createdAt: now,
-    })
-    .run();
+  db.transaction((tx) => {
+    tx.delete(apiTokens).where(eq(apiTokens.userId, userId)).run();
+    tx.insert(apiTokens)
+      .values({
+        userId,
+        hash: hash(token),
+        prefix: token.slice(0, TOKEN_PREFIX.length + 4),
+        createdAt: now,
+      })
+      .run();
+  });
   return token;
 }
 

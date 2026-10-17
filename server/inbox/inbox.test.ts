@@ -129,6 +129,29 @@ describe("входящие и личный токен", () => {
     ).toBe(204);
   });
 
+  it("новый ключ заменяет прежний: старый больше не пускает", async () => {
+    const { app } = createTestApp();
+    const create = async () =>
+      (await (await app.request("/api/tokens", { method: "POST" })).json())
+        .token as string;
+    const first = await create();
+    const second = await create();
+    const { tokens } = await (await app.request("/api/tokens")).json();
+    expect(tokens).toHaveLength(1);
+    expect(second.startsWith(tokens[0].prefix)).toBe(true);
+    const send = (token: string) =>
+      app.request("/api/inbox", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: "milk" }),
+      });
+    expect((await send(first)).status).toBe(401);
+    expect((await send(second)).status).toBe(201);
+  });
+
   it("пустой текст — 400", async () => {
     const { app } = createTestApp();
     expect((await app.request("/api/inbox", json({ text: "  " }))).status).toBe(
