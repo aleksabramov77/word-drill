@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test("админка: пустить почту заранее и закрыть доступ", async ({ page }) => {
   await page.goto("/settings");
+  // Старый адрес «Настроек» ведёт в «Ещё».
+  await expect(page).toHaveURL(/\/more$/);
   await page.getByRole("link", { name: /Админка/ }).click();
   await expect(page.getByRole("heading", { name: "Заявки (0)" })).toBeVisible();
 

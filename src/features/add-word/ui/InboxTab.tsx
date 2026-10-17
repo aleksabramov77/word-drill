@@ -93,8 +93,8 @@ export function InboxTab({
       </form>
       {items?.length === 0 && (
         <p className="text-muted-foreground text-sm">
-          Пусто. Скриншоты сюда присылает команда iOS — см. «Настройки» →
-          «Быстрое добавление с iPhone».
+          Пусто. Сюда приходит текст со скриншотов — см. «Ещё» → «Слова со
+          скриншота».
         </p>
       )}
       <ul className="flex flex-col gap-3">

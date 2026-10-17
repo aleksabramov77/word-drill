@@ -41,9 +41,11 @@ function TextAnswer({
   invalid?: boolean;
 }) {
   const [value, setValue] = useState("");
+  const empty = value.trim() === "";
+  // Пустой ответ не отправляется: на шаге ввода он значил бы «Не помню» — низший балл по случайному Enter.
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    onSubmit(value);
+    if (!empty) onSubmit(value);
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-2">
@@ -62,7 +64,7 @@ function TextAnswer({
         aria-label="Ответ по-английски"
         className="h-12 text-lg"
       />
-      <Button type="submit" size="lg" disabled={disabled}>
+      <Button type="submit" size="lg" disabled={disabled || empty}>
         {submitLabel}
       </Button>
     </form>
@@ -165,13 +167,26 @@ export function AnswerCard({
     <Card>
       <CardContent className="flex flex-col gap-5 py-2">
         <div className="flex flex-col gap-1">
-          <span className="text-muted-foreground text-xs uppercase tracking-wide">
-            {card.isNew
-              ? "новое слово"
-              : card.hot
-                ? "повтор"
-                : "как по-английски"}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground text-xs uppercase tracking-wide">
+              {card.isNew
+                ? "новое слово"
+                : card.hot
+                  ? "повтор"
+                  : "как по-английски"}
+            </span>
+            {/* Наверху, подальше от «Проверить»: случайное нажатие — сразу низший балл. */}
+            {stage === "type" && !done && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={step.isPending}
+                onClick={() => answer("")}
+              >
+                Не помню
+              </Button>
+            )}
+          </div>
           <h2 className="font-semibold text-3xl">{card.prompt}</h2>
           {stage === "type" && !done && (
             <span className="text-muted-foreground text-sm">
@@ -187,21 +202,12 @@ export function AnswerCard({
         {done ? (
           <Outcome result={done} via={deepest} onNext={onNext} />
         ) : stage === "type" ? (
-          <div className="flex flex-col gap-2">
-            <TextAnswer
-              placeholder="Напиши по-английски"
-              submitLabel="Проверить"
-              onSubmit={answer}
-              disabled={step.isPending}
-            />
-            <Button
-              variant="ghost"
-              disabled={step.isPending}
-              onClick={() => answer("")}
-            >
-              Не помню
-            </Button>
-          </div>
+          <TextAnswer
+            placeholder="Напиши по-английски"
+            submitLabel="Проверить"
+            onSubmit={answer}
+            disabled={step.isPending}
+          />
         ) : stage === "hint" ? (
           <div className="flex flex-col gap-3">
             <p className="text-sm">

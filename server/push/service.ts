@@ -249,7 +249,7 @@ export async function sendTestPush(
   return deliver(db, sender, userId, {
     title: "Word Drill",
     body: "Уведомления работают 👍",
-    url: "/settings",
+    url: "/more/notifications",
     tag: "test",
   });
 }
