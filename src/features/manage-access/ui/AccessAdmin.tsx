@@ -1,4 +1,4 @@
-import { Check, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Search, Trash2, UserPlus, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { ApiError } from "@/shared/api";
@@ -58,6 +58,7 @@ export function AccessAdmin() {
   const decide = useDecide();
   const remove = useRemoveAccess();
   const [email, setEmail] = useState("");
+  const [query, setQuery] = useState("");
 
   const act = (email: string, status: "approved" | "denied") =>
     decide.mutate(
@@ -92,15 +93,34 @@ export function AccessAdmin() {
   if (isLoading || !data) {
     return <p className="text-muted-foreground">Загрузка…</p>;
   }
-  const pending = data.entries.filter((e) => e.status === "pending");
-  const approved = data.entries.filter((e) => e.status === "approved");
-  const denied = data.entries.filter((e) => e.status === "denied");
+  // Поиск по всем, кто подавал заявку или кого пускали: почта и имя, без регистра.
+  const q = query.trim().toLowerCase();
+  const found = data.entries.filter(
+    (e) => !q || `${e.email} ${e.name}`.toLowerCase().includes(q),
+  );
+  const pending = found.filter((e) => e.status === "pending");
+  const approved = found.filter((e) => e.status === "approved");
+  const denied = found.filter((e) => e.status === "denied");
   const wordsByEmail = new Map(data.users.map((u) => [u.email, u.words]));
   const busy = decide.isPending || remove.isPending;
 
   return (
     <div className="flex flex-col gap-4">
-      <Section title={`Заявки (${pending.length})`} empty="Новых заявок нет.">
+      <div className="relative">
+        <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
+        <Input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Поиск по почте или имени"
+          aria-label="Поиск по заявкам"
+          className="pl-9"
+        />
+      </div>
+      <Section
+        title={`Заявки (${pending.length})`}
+        empty={q ? "Ничего не нашлось." : "Новых заявок нет."}
+      >
         {pending.map((entry) => (
           <li key={entry.email} className="flex flex-col gap-2">
             <Person entry={entry} />
@@ -132,14 +152,19 @@ export function AccessAdmin() {
 
       <Section title="Могут входить">
         {[
-          ...data.admins.map((admin) => (
-            <li key={admin} className="flex items-center justify-between gap-2">
-              <Person entry={{ email: admin, name: "" }} />
-              <span className="shrink-0 text-muted-foreground text-xs">
-                админ · слов {wordsByEmail.get(admin) ?? 0}
-              </span>
-            </li>
-          )),
+          ...data.admins
+            .filter((admin) => !q || admin.includes(q))
+            .map((admin) => (
+              <li
+                key={admin}
+                className="flex items-center justify-between gap-2"
+              >
+                <Person entry={{ email: admin, name: "" }} />
+                <span className="shrink-0 text-muted-foreground text-xs">
+                  админ · слов {wordsByEmail.get(admin) ?? 0}
+                </span>
+              </li>
+            )),
           ...approved.map((entry) => (
             <li
               key={entry.email}

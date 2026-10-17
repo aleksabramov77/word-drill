@@ -34,6 +34,12 @@ export function LoginPage() {
       <Button asChild size="lg">
         <a href={GOOGLE_LOGIN_URL}>Войти через Google</a>
       </Button>
+      <a
+        href="/privacy"
+        className="text-center text-muted-foreground text-xs underline"
+      >
+        Конфиденциальность
+      </a>
     </main>
   );
 }
