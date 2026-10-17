@@ -1,8 +1,8 @@
-import { Check, Plus } from "lucide-react";
+import { Check, Plus, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { DictionaryWord } from "@/entities/dictionary";
-import { useAddWord } from "@/entities/word";
+import { useAddWord, useDeleteWord, type Word } from "@/entities/word";
 import { ApiError } from "@/shared/api";
 import { Button } from "@/shared/ui/button";
 
@@ -19,11 +19,13 @@ export function DictionaryWordRow({
 }: {
   word: DictionaryWord;
   matched?: string;
-  added: boolean;
+  /** Это слово уже в списке — показываем «Добавлено» и «Убрать». */
+  added?: Word;
 }) {
   const [prompt, setPrompt] = useState(matched ?? word.ru[0] ?? "");
   const [expanded, setExpanded] = useState(false);
   const addWord = useAddWord();
+  const removeWord = useDeleteWord();
   const forms = expanded ? word.ru : word.ru.slice(0, VISIBLE_FORMS);
 
   const add = () =>
@@ -56,16 +58,38 @@ export function DictionaryWordRow({
             </span>
           )}
         </div>
-        <Button
-          size="sm"
-          variant={added ? "secondary" : "default"}
-          disabled={added || addWord.isPending || prompt === ""}
-          onClick={add}
-          aria-label={`Добавить ${word.en}`}
-        >
-          {added ? <Check /> : <Plus />}
-          {added ? "В списке" : "Добавить"}
-        </Button>
+        {added ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <span className="flex items-center gap-1 text-sm text-success">
+              <Check className="size-4" />
+              Добавлено
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={removeWord.isPending}
+              aria-label={`Убрать ${word.en}`}
+              onClick={() =>
+                removeWord.mutate(added.id, {
+                  onSuccess: () => toast.success(`Убрано: ${added.prompt}`),
+                })
+              }
+            >
+              <Undo2 />
+              Убрать
+            </Button>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            disabled={addWord.isPending || prompt === ""}
+            onClick={add}
+            aria-label={`Добавить ${word.en}`}
+          >
+            <Plus />
+            Добавить
+          </Button>
+        )}
       </div>
       <div className="flex flex-wrap gap-1.5">
         {forms.map((form) => (

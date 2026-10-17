@@ -5,29 +5,26 @@ import {
   useUnits,
   useUnitWords,
 } from "@/entities/dictionary";
-import { useWords } from "@/entities/word";
+import { useWords, type Word } from "@/entities/word";
+import { normalize } from "@/shared/lib/answer-check";
 import { Input } from "@/shared/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
+import { wordsByAnswer } from "../model/existing.ts";
 import { DictionaryWordRow } from "./DictionaryWordRow.tsx";
 import { InboxTab } from "./InboxTab.tsx";
 import { ManualWordForm } from "./ManualWordForm.tsx";
 
-/** Какие английские слова уже в списке — чтобы показать «В списке» вместо «Добавить». */
-function useAddedAnswers(): Set<string> {
+/** Слово словаря → уже добавленное слово списка (по английскому ответу) — для «Добавлено» и «Убрать». */
+function useAddedWords(): (en: string) => Word | undefined {
   const { data } = useWords();
-  return useMemo(
-    () =>
-      new Set(
-        (data ?? []).flatMap((w) => w.answers.map((a) => a.toLowerCase())),
-      ),
-    [data],
-  );
+  const map = useMemo(() => wordsByAnswer(data ?? []), [data]);
+  return (en) => map.get(normalize(en));
 }
 
 function SearchTab() {
   const [query, setQuery] = useState("");
   const { data: hits, isFetching } = useDictionarySearch(query);
-  const added = useAddedAnswers();
+  const added = useAddedWords();
   return (
     <div className="flex flex-col gap-3">
       <Input
@@ -49,7 +46,7 @@ function SearchTab() {
             key={`${hit.word.en}:${query}`}
             word={hit.word}
             matched={hit.matched === hit.word.en ? undefined : hit.matched}
-            added={added.has(hit.word.en.toLowerCase())}
+            added={added(hit.word.en)}
           />
         ))}
       </ul>
@@ -61,7 +58,7 @@ function UnitTab() {
   const { data: units } = useUnits();
   const [unit, setUnit] = useState<number | null>(null);
   const { data } = useUnitWords(unit);
-  const added = useAddedAnswers();
+  const added = useAddedWords();
   return (
     <div className="flex flex-col gap-3">
       <select
@@ -84,7 +81,7 @@ function UnitTab() {
           <DictionaryWordRow
             key={`${unit}:${word.en}`}
             word={word}
-            added={added.has(word.en.toLowerCase())}
+            added={added(word.en)}
           />
         ))}
       </ul>
@@ -93,7 +90,7 @@ function UnitTab() {
 }
 
 export function AddWordPanel() {
-  const added = useAddedAnswers();
+  const added = useAddedWords();
   // Вкладка — в URL (?tab=inbox): команда iOS после отправки скриншота открывает сразу «Входящие».
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") ?? "search";

@@ -1,5 +1,6 @@
 import { Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import type { Word } from "@/entities/word";
 import { Button } from "@/shared/ui/button";
 import {
   type InboxItem,
@@ -16,7 +17,7 @@ function InboxEntry({
   added,
 }: {
   item: InboxItem;
-  added: ReadonlySet<string>;
+  added: (en: string) => Word | undefined;
 }) {
   const remove = useDeleteInboxItem();
   const preview =
@@ -46,7 +47,7 @@ function InboxEntry({
               key={s.word.en}
               word={s.word}
               matched={s.matchedRu ?? undefined}
-              added={added.has(s.word.en.toLowerCase())}
+              added={added(s.word.en)}
             />
           ))}
         </ul>
@@ -56,7 +57,11 @@ function InboxEntry({
 }
 
 /** «Входящие»: текст со скриншота (через «Команды» iOS) или вставленный вручную → слова курса из него. */
-export function InboxTab({ added }: { added: ReadonlySet<string> }) {
+export function InboxTab({
+  added,
+}: {
+  added: (en: string) => Word | undefined;
+}) {
   const { data: items } = useInbox();
   const addText = useAddInboxText();
   const [text, setText] = useState("");
