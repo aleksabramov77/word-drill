@@ -1,19 +1,33 @@
 import { Check, Copy, Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { logEvent } from "@/shared/api";
 import { Button } from "@/shared/ui/button";
 import { useCreateToken, useDeleteToken, useTokens } from "../api/tokenApi.ts";
 
 /** Готовая команда (scripts/build-shortcut.ts); при установке iPhone спрашивает ключ. */
 const SHORTCUT_URL = "/word-drill.shortcut";
+/** Когда открывали файл команды — при следующем запуске приложение пишет это в журнал (src/app/index.tsx). */
+export const SHORTCUT_OPENED_KEY = "wd-shortcut-opened-at";
+
+function openShortcut(via: "same" | "window") {
+  logEvent("shortcut-open", { via });
+  try {
+    localStorage.setItem(SHORTCUT_OPENED_KEY, String(Date.now()));
+  } catch {
+    // без localStorage просто не узнаем, вернулся ли
+  }
+}
 
 /**
  * Команда iPhone «скриншот → Word Drill» в два шага: скопировать ключ, открыть файл команды.
  * - Ключ один: новый заменяет прежний (server/auth/tokens.ts).
  * - Ключ кладётся в буфер через ClipboardItem с обещанием: Safari разрешает запись в буфер только
  *   прямо по нажатию, а ключ приходит с сервера чуть позже.
- * - Файл открывается в отдельном окне (target=_blank): внутри приложения с экрана «Домой»
- *   у экрана файла нет кнопок «Назад» и «Готово» — из него не выйти.
+ * - Файл открывается в том же окне — так iPhone показывает «Open in “Shortcuts”» (проверено). Минус:
+ *   у этого экрана в приложении с экрана «Домой» нет «Назад» — выйти можно, только закрыв приложение.
+ *   Отдельное окно (target=_blank) на iPhone зависало на белом экране — оно запасное.
+ * - Нажатия и итог копирования — в журнал (server/log.ts): по нему видно, что сработало на телефоне.
  */
 export function ShortcutSetup() {
   const { data: tokens } = useTokens();
@@ -36,12 +50,18 @@ export function ShortcutSetup() {
       await token;
       setCopied(true);
       setShown(null);
-    } catch {
+      logEvent("shortcut-copy-key", { ok: true });
+    } catch (error) {
       // Буфер недоступен — покажем ключ, его можно выделить и скопировать.
       try {
         setShown(await token);
-      } catch {
+        logEvent("shortcut-copy-key", { ok: false, error: String(error) });
+      } catch (createError) {
         toast.error("Не получилось создать ключ");
+        logEvent("shortcut-copy-key", {
+          ok: false,
+          error: String(createError),
+        });
       }
     }
   };
@@ -78,20 +98,37 @@ export function ShortcutSetup() {
       <section className="flex flex-col gap-2">
         <h2 className="font-medium">2. Установи команду</h2>
         <p className="text-muted-foreground">
-          Откроется окно с файлом: нажми «Open in “Shortcuts”» («Открыть в
+          Откроется экран с файлом: нажми «Open in “Shortcuts”» («Открыть в
           „Командах“»), вставь ключ и нажми «Add Shortcut» («Добавить»).
-          Вернуться — кнопкой «Готово» вверху окна.
         </p>
         <Button
           asChild
           variant={copied || shown ? "default" : "outline"}
           className="self-start"
         >
-          <a href={SHORTCUT_URL} target="_blank" rel="noreferrer">
+          <a
+            href={`${SHORTCUT_URL}?via=same`}
+            onClick={() => openShortcut("same")}
+          >
             <Download />
             Установить команду
           </a>
         </Button>
+        <p className="text-muted-foreground">
+          Вернуться в Word Drill с экрана файла нельзя (у него нет «Назад»):
+          проведи вверх от нижнего края экрана и задержи палец, смахни Word
+          Drill вверх и открой его снова.{" "}
+          <a
+            href={`${SHORTCUT_URL}?via=window`}
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+            onClick={() => openShortcut("window")}
+          >
+            Открыть в отдельном окне
+          </a>{" "}
+          — запасной вариант, если экран с файлом не появился.
+        </p>
       </section>
 
       <section className="flex flex-col gap-2">

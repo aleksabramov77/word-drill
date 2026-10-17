@@ -167,3 +167,21 @@ export const reviews = sqliteTable(
   },
   (t) => [index("reviews_user_at").on(t.userId, t.at)],
 );
+
+/** Журнал событий приложения и сервера для разбора проблем на устройствах (server/log). Хранится 14 дней. */
+export const clientLogs = sqliteTable(
+  "client_logs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** Null — запрос без входа (например, скачивание файла команды из Safari). */
+    userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    at: integer("at", { mode: "timestamp_ms" }).notNull(),
+    /** Кто записал: client — приложение, server — сервер. */
+    source: text("source").$type<"client" | "server">().notNull(),
+    event: text("event").notNull(),
+    data: text("data", { mode: "json" }).$type<Record<string, unknown>>(),
+    appVersion: text("app_version"),
+    userAgent: text("user_agent"),
+  },
+  (t) => [index("client_logs_at").on(t.at)],
+);
