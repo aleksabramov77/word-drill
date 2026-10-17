@@ -57,8 +57,10 @@ self.addEventListener("notificationclick", (event) => {
       });
       const open = windows[0];
       if (open) {
+        // Приложение уже открыто (на любом экране): переходит само, без перезагрузки —
+        // navigate() у окна на iPhone не срабатывает. Слушатель — src/app/App.tsx.
         await open.focus();
-        await open.navigate(url);
+        open.postMessage({ type: "open-url", url });
         return;
       }
       await self.clients.openWindow(url);

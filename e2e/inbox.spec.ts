@@ -24,6 +24,7 @@ test("входящие: текст скриншота → подсказка п�
 
   // Токен показывается один раз.
   await page.getByRole("link", { name: "Настройки" }).click();
+  await page.getByRole("link", { name: /Быстрое добавление с iPhone/ }).click();
   await page.getByRole("button", { name: "Создать токен" }).click();
   await expect(page.locator("code").filter({ hasText: /^wd_/ })).toBeVisible();
   await expect(page.getByText(/^wd_.{4}… · создан/)).toBeVisible();

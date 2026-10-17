@@ -5,6 +5,7 @@ import { ApiError, apiFetch } from "@/shared/api";
 const meSchema = z.object({
   user: z.object({ email: z.string(), name: z.string() }),
   mode: z.enum(["google", "dev"]),
+  isAdmin: z.boolean().default(false),
 });
 export type Me = z.infer<typeof meSchema>;
 
