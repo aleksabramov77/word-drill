@@ -12,6 +12,7 @@
     "build": "vite build && tsdown",
     "start": "NODE_ENV=production node dist/server.mjs",
     "dict:import": "tsx scripts/dict-import.ts",
+    "db:generate": "drizzle-kit generate",
     "lint": "biome check",
     "lint:fsd": "steiger ./src",
     "format": "biome format --write",
@@ -21,20 +22,34 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
+    "@hookform/resolvers": "^5.9.2",
+    "@tanstack/react-query": "^5.104.3",
+    "better-sqlite3": "^13.0.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
+    "lucide-react": "^1.59.0",
+    "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-hook-form": "^7.90.0",
+    "react-router": "^8.4.0",
+    "tailwind-merge": "^3.7.0",
     "ts-fsrs": "^5.4.2",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
     "@feature-sliced/steiger-plugin": "^0.8.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "drizzle-kit": "^0.31.11",
     "steiger": "^0.7.0",
     "tailwindcss": "^4.3.3",
     "tsdown": "^0.23.1",
@@ -45,6 +60,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "better-sqlite3",
       "esbuild"
     ]
   }
