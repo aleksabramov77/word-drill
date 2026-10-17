@@ -45,6 +45,20 @@ root.route(
   }),
 );
 if (isProd) {
+  // Готовая команда iOS (scripts/build-shortcut.ts): отдаётся файлом — по его имени «Команды» называют команду.
+  root.get(
+    "/word-drill.shortcut",
+    serveStatic({
+      path: "./dist/client/word-drill.shortcut",
+      onFound: (_path, c) => {
+        c.header("Content-Type", "application/octet-stream");
+        c.header(
+          "Content-Disposition",
+          "attachment; filename=\"Word Drill.shortcut\"; filename*=UTF-8''Word%20Drill.shortcut",
+        );
+      },
+    }),
+  );
   // SPA: файлы из dist/client, всё остальное — index.html (маршруты решает клиент).
   root.use("/*", serveStatic({ root: "./dist/client" }));
   root.get("/*", serveStatic({ path: "./dist/client/index.html" }));

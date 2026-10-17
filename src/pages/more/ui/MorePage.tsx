@@ -62,8 +62,8 @@ const GROUPS: Group[] = [
       },
       {
         slug: "shortcut",
-        title: "Ключ для «Команд»",
-        hint: "Для добавления слов со скриншота на iPhone",
+        title: "Команда для iPhone",
+        hint: "Скриншот → «Входящие» одним нажатием",
         icon: KeyRound,
         content: () => <ShortcutSetup />,
       },
