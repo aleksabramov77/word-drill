@@ -34,6 +34,12 @@ export default defineConfig({
         display: "standalone",
         background_color: "#ffffff",
         theme_color: "#171717",
+        // Android: установленное приложение появляется в «Поделиться» — текст уходит во «Входящие» (src/pages/share).
+        share_target: {
+          action: "/share",
+          method: "GET",
+          params: { title: "title", text: "text", url: "url" },
+        },
         icons: [
           { src: "pwa-64x64.png", sizes: "64x64", type: "image/png" },
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },

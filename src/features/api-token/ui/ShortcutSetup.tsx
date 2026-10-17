@@ -12,28 +12,26 @@ function copy(text: string) {
 }
 
 /**
- * Личный токен и инструкция для команды iOS «Команды»: скриншот → текст → в «Входящие».
- * Названия действий — английские: русские названия в «Командах» не сверены (найти поиском: «снимок», «текст», «URL»).
+ * Личный ключ (API-токен) для команды iOS «Команды»: скриншот → текст → «Входящие». Инструкция — в справке.
  */
 export function ShortcutSetup() {
   const { data: tokens } = useTokens();
   const create = useCreateToken();
   const remove = useDeleteToken();
   const [fresh, setFresh] = useState<string | null>(null);
-  const inboxUrl = `${window.location.origin}/api/inbox`;
 
   return (
     <div className="flex flex-col gap-3 text-sm">
       <p>
-        Команда iOS «Команды» делает скриншот (например, карточки Duolingo с
-        ответом), распознаёт на нём текст и отправляет сюда — слова появятся во
-        «Входящих» на странице «Слова».
+        Ключ нужен команде iPhone «скриншот → Word Drill»: с ним она отправляет
+        текст с экрана во «Входящие». Как собрать команду — «Ещё» → «Слова со
+        скриншота».
       </p>
 
       {fresh ? (
         <div className="flex flex-col gap-2 rounded-lg bg-secondary p-3">
           <p className="font-medium">
-            Токен (показывается один раз — сохрани в команде):
+            Ключ (показывается один раз — сохрани в команде):
           </p>
           <code className="break-all text-xs">{fresh}</code>
           <Button
@@ -43,7 +41,7 @@ export function ShortcutSetup() {
             onClick={() => copy(fresh)}
           >
             <Copy />
-            Скопировать токен
+            Скопировать ключ
           </Button>
         </div>
       ) : (
@@ -54,7 +52,7 @@ export function ShortcutSetup() {
           onClick={() => create.mutate(undefined, { onSuccess: setFresh })}
         >
           <KeyRound />
-          Создать токен
+          Создать ключ
         </Button>
       )}
 
@@ -71,7 +69,7 @@ export function ShortcutSetup() {
               <Button
                 size="sm"
                 variant="ghost"
-                aria-label={`Удалить токен ${t.prefix}`}
+                aria-label={`Удалить ключ ${t.prefix}`}
                 disabled={remove.isPending}
                 onClick={() => remove.mutate(t.id)}
               >
@@ -81,49 +79,6 @@ export function ShortcutSetup() {
           ))}
         </ul>
       )}
-
-      <details className="rounded-lg border p-3">
-        <summary className="cursor-pointer font-medium">
-          Как собрать команду
-        </summary>
-        <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5">
-          <li>
-            «Команды» → «+» (новая команда). Добавь действие{" "}
-            <b>Take Screenshot</b>.
-          </li>
-          <li>
-            Действие <b>Extract Text from Image</b> — из скриншота.
-          </li>
-          <li>
-            Действие <b>Get Contents of URL</b>: адрес{" "}
-            <code className="break-all">{inboxUrl}</code>{" "}
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 px-1"
-              aria-label="Скопировать адрес"
-              onClick={() => copy(inboxUrl)}
-            >
-              <Copy />
-            </Button>
-            , метод POST, заголовок <code>Authorization</code> ={" "}
-            <code>Bearer &lt;токен&gt;</code>, тело — JSON с полем{" "}
-            <code>text</code> = текст из шага 2.
-          </li>
-          <li>
-            Запускать удобно кнопкой действия (iPhone 15 Pro и новее) или
-            двойным касанием задней панели (Настройки → Универсальный доступ →
-            Касание).
-          </li>
-        </ol>
-        <p className="mt-2 text-muted-foreground text-xs">
-          Названия действий даны по-английски: русские названия в «Командах» я
-          не сверил — в русском интерфейсе ищи действие поиском по словам
-          «снимок», «текст», «URL». Для выделенного текста подойдёт та же
-          команда без первых двух шагов, с включённым «Показывать в меню
-          „Поделиться“».
-        </p>
-      </details>
     </div>
   );
 }
