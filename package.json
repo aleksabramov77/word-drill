@@ -11,6 +11,7 @@
     "dev": "tsx scripts/dev.ts",
     "build": "vite build && tsdown",
     "start": "NODE_ENV=production node dist/server.mjs",
+    "dict:import": "tsx scripts/dict-import.ts",
     "lint": "biome check",
     "lint:fsd": "steiger ./src",
     "format": "biome format --write",
@@ -23,7 +24,8 @@
     "hono": "^4.13.13",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "ts-fsrs": "^5.4.2"
+    "ts-fsrs": "^5.4.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

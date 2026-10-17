@@ -21,6 +21,10 @@ export default defineConfig({
     emptyOutDir: true,
   },
   test: {
-    include: ["src/**/*.test.{ts,tsx}", "server/**/*.test.ts"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "server/**/*.test.ts",
+      "scripts/**/*.test.ts",
+    ],
   },
 });
