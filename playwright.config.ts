@@ -17,7 +17,7 @@ export default defineConfig({
   },
   webServer: {
     command: `rm -f ${database} ${database}-* && pnpm build && pnpm start`,
-    env: { PORT: String(port), DATABASE_PATH: database },
+    env: { PORT: String(port), DATABASE_PATH: database, ALLOW_DEV_AUTH: "1" },
     url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: false,
     timeout: 120_000,

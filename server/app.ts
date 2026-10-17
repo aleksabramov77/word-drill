@@ -1,5 +1,8 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import type { AuthConfig } from "./auth/config.ts";
+import type { IdentityProvider } from "./auth/google.ts";
+import { type AuthEnv, mountAuth } from "./auth/routes.ts";
 import type { Db } from "./db/client.ts";
 import {
   type Dictionary,
@@ -16,15 +19,15 @@ import {
   updateWord,
   updateWordSchema,
 } from "./drill/service.ts";
-import { LOCAL_USER_ID } from "./users.ts";
 
 export interface AppDeps {
   db: Db;
   dictionary: Dictionary;
+  /** По умолчанию — dev: все запросы от локального пользователя. */
+  auth?: AuthConfig;
+  identity?: IdentityProvider;
   now?: () => Date;
 }
-
-type Env = { Variables: { userId: string } };
 
 const searchQuerySchema = z.object({
   q: z.string().max(100).default(""),
@@ -49,14 +52,15 @@ async function body(req: { json: () => Promise<unknown> }): Promise<unknown> {
 }
 
 // API приложения. Статику клиента в проде подключает server/main.ts, чтобы app можно было тестировать без файлов.
-export function createApp({ db, dictionary, now = () => new Date() }: AppDeps) {
-  const app = new Hono<Env>().basePath("/api");
-
-  // До подключения входа (этап 4) все запросы — от одного локального пользователя.
-  app.use("*", async (c, next) => {
-    c.set("userId", LOCAL_USER_ID);
-    await next();
-  });
+export function createApp({
+  db,
+  dictionary,
+  auth = { mode: "dev", email: "local@localhost" },
+  identity,
+  now = () => new Date(),
+}: AppDeps) {
+  const app = new Hono<AuthEnv>().basePath("/api");
+  mountAuth(app, { db, auth, identity, now });
 
   app.get("/health", (c) => c.json({ ok: true }));
 

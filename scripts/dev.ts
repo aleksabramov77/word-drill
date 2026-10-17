@@ -1,9 +1,12 @@
 // Локальный запуск: Hono API и Vite на первых свободных портах.
 // Сайт — от 5000 (на macOS 5000 обычно занят AirPlay Receiver — тогда 5001, 5002…), API — от 5100.
 import { type ChildProcess, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { findFreePort } from "./lib/freePort.ts";
 
 async function main() {
+  // Локальные секреты (вход через Google и т.п.) — из .env.local, образец в .env.example.
+  if (existsSync(".env.local")) process.loadEnvFile(".env.local");
   const webPort = await findFreePort(Number(process.env.PORT ?? 5000));
   const apiPort = await findFreePort(Number(process.env.API_PORT ?? 5100));
   const env = { ...process.env, API_PORT: String(apiPort) };

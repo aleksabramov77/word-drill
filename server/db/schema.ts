@@ -21,6 +21,20 @@ export const users = sqliteTable("users", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    /** SHA-256 токена из cookie. */
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("sessions_user").on(t.userId)],
+);
+
 export const words = sqliteTable(
   "words",
   {
