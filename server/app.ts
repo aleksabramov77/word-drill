@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { mountAdmin } from "./admin/routes.ts";
 import type { AuthConfig } from "./auth/config.ts";
 import type { IdentityProvider } from "./auth/google.ts";
 import { type AuthEnv, mountAuth } from "./auth/routes.ts";
@@ -35,6 +36,7 @@ import {
   deleteSubscription,
   getSettings,
   markPushesAnswered,
+  notifyEmails,
   saveSubscription,
   sendTestPush,
   settingsSchema,
@@ -86,7 +88,26 @@ export function createApp({
   now = () => new Date(),
 }: AppDeps) {
   const app = new Hono<AuthEnv>().basePath("/api");
-  mountAuth(app, { db, auth, identity, now });
+  const admins = auth.mode === "google" ? [...auth.allowedEmails] : [];
+  mountAuth(app, {
+    db,
+    auth,
+    identity,
+    now,
+    onAccessRequest: pusher
+      ? async (person) => {
+          await notifyEmails(db, pusher, admins, {
+            title: "Заявка на вход в Word Drill",
+            body: person.name
+              ? `${person.name} · ${person.email}`
+              : person.email,
+            url: "/admin",
+            tag: "access",
+          });
+        }
+      : undefined,
+  });
+  mountAdmin(app, { db, auth, now });
 
   app.get("/health", (c) => c.json({ ok: true }));
 

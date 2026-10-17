@@ -12,6 +12,7 @@ import {
   nextStage,
   pushSpeedSample,
   Rating,
+  type ReviewGrade,
   recallProbability,
   reviewCard,
   SPEED_HISTORY_SIZE,
@@ -165,6 +166,25 @@ describe("интервалы", () => {
     expect(
       knowledge({ ...newCard(start), state: State.Review, stability: 400 }),
     ).toBe(1);
+  });
+
+  it("знание в горячем круге: растёт с каждым Good, Hard не двигает, Again сбрасывает", () => {
+    const answer = (...grades: ReviewGrade[]) => {
+      let now = start;
+      let card = newCard(now);
+      for (const grade of grades) {
+        card = reviewCard(card, grade, now);
+        now = card.due;
+      }
+      return knowledge(card);
+    };
+    const good = answer(Rating.Good);
+    const goodTwice = answer(Rating.Good, Rating.Good);
+    const graduated = answer(Rating.Good, Rating.Good, Rating.Good);
+    expect(goodTwice).toBeGreaterThan(good);
+    expect(graduated).toBeGreaterThan(goodTwice);
+    expect(answer(Rating.Good, Rating.Hard, Rating.Hard)).toBe(good);
+    expect(answer(Rating.Good, Rating.Good, Rating.Again)).toBeLessThan(good);
   });
 
   it("новое слово: вероятность 0, статус «новое»", () => {
