@@ -24,6 +24,7 @@
     "rules": {
       "preset": "recommended",
       "style": {
+        "noNonNullAssertion": "off",
         "noRestrictedImports": {
           "level": "error",
           "options": {
