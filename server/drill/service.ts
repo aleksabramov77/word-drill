@@ -326,7 +326,12 @@ function typeStep(
     row.answers,
     otherAnswers(db, userId, row.id),
   );
-  const result: StageResult = { stage: "type", verdict: checked.verdict };
+  const result: StageResult = {
+    stage: "type",
+    verdict: checked.verdict,
+    // Пустой ответ — кнопка «Не помню».
+    ...(normalize(step.input) === "" ? { forgot: true } : {}),
+  };
   let speed: Speed = "normal";
   const elapsedMs = step.elapsedMs ?? null;
   if (

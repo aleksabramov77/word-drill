@@ -120,6 +120,20 @@ describe("лестница", () => {
     expect(gradeAttempt(typed("typo"), "fast")).toBe(Rating.Hard);
   });
 
+  it("«Не помню» — Again, даже если вспомнил по подсказке", () => {
+    expect(
+      gradeAttempt(
+        {
+          first: { stage: "type", verdict: "wrong", forgot: true },
+          deepest: "hint",
+          revealed: 0,
+          letters: 11,
+        },
+        "fast",
+      ),
+    ).toBe(Rating.Again);
+  });
+
   it("оценка FSRS: каждая подсказка снижает, выбор и показ — Again", () => {
     const hinted = (revealed: number, letters = 11) => ({
       first: { stage: "type", verdict: "wrong" } as const,
