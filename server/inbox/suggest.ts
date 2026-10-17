@@ -25,7 +25,8 @@ function escapeRegExp(text: string): string {
 
 /** Целое слово или фраза в тексте, не часть другого слова. */
 export function containsWord(text: string, phrase: string): boolean {
-  if (phrase === "") return false;
+  // Сначала дешёвая проверка подстроки: регулярка на каждое из ~6000 слов словаря — секунды на запрос.
+  if (phrase === "" || !text.includes(phrase)) return false;
   return new RegExp(
     `(?<![\\p{L}'])${escapeRegExp(phrase)}(?![\\p{L}'])`,
     "u",
