@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "../db/client.ts";
 import { pushLog, pushSubscriptions, users } from "../db/schema.ts";
@@ -166,6 +166,25 @@ async function deliver(
         .run();
     }
   }
+  return delivered;
+}
+
+/** Уведомление пользователям с этими почтами (например, админам — о заявке на вход). */
+export async function notifyEmails(
+  db: Db,
+  sender: PushSender,
+  emails: readonly string[],
+  payload: PushPayload,
+): Promise<number> {
+  if (emails.length === 0) return 0;
+  const targets = db
+    .select({ id: users.id })
+    .from(users)
+    .where(inArray(users.email, [...emails]))
+    .all();
+  let delivered = 0;
+  for (const { id } of targets)
+    delivered += await deliver(db, sender, id, payload);
   return delivered;
 }
 

@@ -8,8 +8,9 @@ import {
   findUser,
   LOCAL_USER_ID,
 } from "../users.ts";
+import { accessOf, requestAccess } from "./access.ts";
 import type { AuthConfig } from "./config.ts";
-import type { IdentityProvider } from "./google.ts";
+import type { Identity, IdentityProvider } from "./google.ts";
 import {
   createSession,
   deleteSession,
@@ -32,6 +33,14 @@ export interface AuthDeps {
   auth: AuthConfig;
   identity?: IdentityProvider;
   now: () => Date;
+  /** Новая заявка на вход — уведомить админов. */
+  onAccessRequest?: (person: Identity) => Promise<void> | void;
+}
+
+/** Админ — почта из ALLOWED_EMAILS (в dev-режиме — локальный пользователь). */
+export function isAdminEmail(auth: AuthConfig, email: string): boolean {
+  const key = email.toLowerCase();
+  return auth.mode === "dev" ? key === auth.email : auth.allowedEmails.has(key);
 }
 
 function cookieOptions(auth: AuthConfig, maxAge: number) {
@@ -81,6 +90,7 @@ export function mountAuth(app: Hono<AuthEnv>, deps: AuthDeps) {
     return c.json({
       user: { email: user.email, name: user.name },
       mode: auth.mode,
+      isAdmin: isAdminEmail(auth, user.email),
     });
   });
 
@@ -121,8 +131,17 @@ export function mountAuth(app: Hono<AuthEnv>, deps: AuthDeps) {
     } catch {
       return c.redirect("/login?error=google");
     }
-    if (!person.emailVerified || !auth.allowedEmails.has(person.email)) {
-      return c.redirect("/login?error=forbidden");
+    if (!person.emailVerified) return c.redirect("/login?error=forbidden");
+    if (!isAdminEmail(auth, person.email)) {
+      const status = accessOf(db, person.email);
+      if (status === "denied") return c.redirect("/login?error=forbidden");
+      if (status !== "approved") {
+        // Незнакомая почта — заявка админам; повторная попытка до решения — просто «ждите».
+        if (requestAccess(db, person.email, person.name, now())) {
+          await deps.onAccessRequest?.(person);
+        }
+        return c.redirect("/login?status=pending");
+      }
     }
 
     const userId = ensureGoogleUser(db, person, now());
