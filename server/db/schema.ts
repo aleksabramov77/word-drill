@@ -63,6 +63,8 @@ export const reviews = sqliteTable(
     first: text("first", { mode: "json" }).notNull(),
     /** Самый нижний шаг лестницы, до которого дошли. */
     deepest: text("deepest").notNull(),
+    /** Сколько букв открыто подсказками. */
+    hints: integer("hints").notNull().default(0),
     grade: integer("grade").notNull(),
     elapsedMs: integer("elapsed_ms"),
   },

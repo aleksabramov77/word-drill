@@ -27,16 +27,16 @@ function setup() {
   };
   const step = (
     wordId: number,
-    stage: "type" | "choice" | "show",
+    stage: "type" | "hint" | "choice" | "show",
     input: string,
-    elapsedMs?: number,
+    extra: { elapsedMs?: number; action?: "reveal" | "choices" } = {},
   ) => {
     const result = answerStep(
       ctx.db,
       fixtureDictionary,
       ctx.userId,
       wordId,
-      { stage, input, elapsedMs },
+      { stage, input, ...extra },
       ctx.clock.now(),
     );
     if (!result) throw new Error("no word");
@@ -90,7 +90,7 @@ describe("тренировка", () => {
       isNew: true,
     });
 
-    const result = step(word.id, "type", "Blood", 3000);
+    const result = step(word.id, "type", "Blood", { elapsedMs: 3000 });
     expect(result).toMatchObject({
       verdict: "correct",
       correct: true,
@@ -107,7 +107,7 @@ describe("тренировка", () => {
   it("опечатка — Hard и статус «с ошибками»", () => {
     const { add, step } = setup();
     const word = add("кровь", ["blood"]);
-    const result = step(word.id, "type", "blod", 3000);
+    const result = step(word.id, "type", "blod", { elapsedMs: 3000 });
     expect(result).toMatchObject({
       verdict: "typo",
       correct: true,
@@ -118,27 +118,73 @@ describe("тренировка", () => {
     expect(result.outcome?.status).toBe("errors");
   });
 
-  it("лестница: неверно → выбор → неверно → показ → переписал; оценка Again, возврат через минуту", () => {
+  it("не помню → заготовка; одна подсказка из 11 букв и верный ответ — Hard", () => {
+    const { add, step } = setup();
+    const word = add("разочарование", ["frustration"]);
+
+    const typed = step(word.id, "type", "");
+    expect(typed).toMatchObject({
+      verdict: "wrong",
+      next: "hint",
+      revealed: 0,
+    });
+    expect(typed.mask).toEqual(new Array(11).fill(null));
+
+    const hinted = step(word.id, "hint", "", { action: "reveal" });
+    expect(hinted.next).toBe("hint");
+    expect(hinted.mask?.[0]).toBe("f");
+    expect(hinted.revealed).toBe(1);
+
+    const solved = step(word.id, "hint", "frustration");
+    expect(solved.next).toBe("done");
+    expect(solved.outcome?.grade).toBe(Rating.Hard);
+  });
+
+  it("каждая неверная попытка с подсказками открывает букву; больше 25% — Again", () => {
+    const { add, step } = setup();
+    const word = add("разочарование", ["frustration"]);
+    step(word.id, "type", "xyz");
+    for (const wrong of ["aaa", "bbb", "ccc"]) {
+      const result = step(word.id, "hint", wrong);
+      expect(result).toMatchObject({ correct: false, next: "hint" });
+    }
+    const solved = step(word.id, "hint", "frustration");
+    expect(solved.outcome?.grade).toBe(Rating.Again);
+  });
+
+  it("открыто больше половины и снова мимо — выбор из вариантов", () => {
+    const { add, step } = setup();
+    const word = add("кровь", ["blood"]);
+    step(word.id, "type", "xyz");
+    expect(step(word.id, "hint", "aaa")).toMatchObject({
+      next: "hint",
+      revealed: 1,
+    });
+    expect(step(word.id, "hint", "bbb")).toMatchObject({
+      next: "hint",
+      revealed: 2,
+    });
+    const third = step(word.id, "hint", "ccc");
+    expect(third.next).toBe("choice");
+    expect(third.options).toHaveLength(4);
+  });
+
+  it("лестница до конца: подсказки → «Варианты» → неверно → показ → переписал; Again, возврат через минуту", () => {
     const { add, step, db, userId, clock } = setup();
     const word = add("кровь", ["blood"]);
     add("вода", ["water"]);
 
-    const typed = step(word.id, "type", "xyz", 4000);
-    expect(typed).toMatchObject({
-      verdict: "wrong",
-      correct: false,
-      next: "choice",
-    });
-    expect(typed.options).toHaveLength(4);
-    expect(typed.options).toContain("blood");
+    expect(step(word.id, "type", "xyz", { elapsedMs: 4000 }).next).toBe("hint");
+    const choices = step(word.id, "hint", "", { action: "choices" });
+    expect(choices.next).toBe("choice");
+    expect(choices.options).toHaveLength(4);
+    expect(choices.options).toContain("blood");
 
-    const chosen = step(word.id, "choice", "flood");
-    expect(chosen).toMatchObject({
+    expect(step(word.id, "choice", "flood")).toMatchObject({
       correct: false,
       next: "show",
       expected: "blood",
     });
-
     expect(step(word.id, "show", "blod")).toMatchObject({
       correct: false,
       next: "show",
@@ -163,10 +209,11 @@ describe("тренировка", () => {
     expect(queue.newCount).toBe(1);
   });
 
-  it("верный выбор после ошибки ввода — тоже Again", () => {
+  it("верный выбор — тоже Again", () => {
     const { add, step } = setup();
     const word = add("кровь", ["blood"]);
     step(word.id, "type", "xyz");
+    step(word.id, "hint", "", { action: "choices" });
     const chosen = step(word.id, "choice", "blood");
     expect(chosen.next).toBe("done");
     expect(chosen.outcome?.grade).toBe(Rating.Again);
@@ -178,7 +225,7 @@ describe("тренировка", () => {
     add("вода", ["water"]);
     expect(step(word.id, "type", "water")).toMatchObject({
       verdict: "other-word",
-      next: "choice",
+      next: "hint",
     });
   });
 

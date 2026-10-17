@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   classifySpeed,
   DEFAULT_REACTION_MS,
+  deeperStage,
   estimateReactionMs,
   gradeAttempt,
   isHot,
+  knowledge,
   median,
   newCard,
   nextStage,
@@ -78,9 +80,24 @@ describe("лестница", () => {
   it("ввод: верно или с опечаткой — готово, иначе выбор", () => {
     expect(nextStage({ stage: "type", verdict: "correct" })).toBe("done");
     expect(nextStage({ stage: "type", verdict: "typo" })).toBe("done");
-    expect(nextStage({ stage: "type", verdict: "partial" })).toBe("choice");
-    expect(nextStage({ stage: "type", verdict: "other-word" })).toBe("choice");
-    expect(nextStage({ stage: "type", verdict: "wrong" })).toBe("choice");
+    expect(nextStage({ stage: "type", verdict: "partial" })).toBe("hint");
+    expect(nextStage({ stage: "type", verdict: "other-word" })).toBe("hint");
+    expect(nextStage({ stage: "type", verdict: "wrong" })).toBe("hint");
+  });
+
+  it("подсказки: верно — готово, «Варианты» или подсказки кончились — выбор, иначе ещё подсказка", () => {
+    const hint = { stage: "hint", exhausted: false } as const;
+    expect(nextStage({ ...hint, correct: true })).toBe("done");
+    expect(nextStage({ ...hint, correct: false })).toBe("hint");
+    expect(nextStage({ ...hint, correct: false, giveUp: true })).toBe("choice");
+    expect(nextStage({ ...hint, correct: false, exhausted: true })).toBe(
+      "choice",
+    );
+  });
+
+  it("deeperStage", () => {
+    expect(deeperStage("type", "hint")).toBe("hint");
+    expect(deeperStage("show", "choice")).toBe("show");
   });
 
   it("выбор: ошибка — показ; показ повторяется, пока не перепишешь", () => {
@@ -90,24 +107,52 @@ describe("лестница", () => {
     expect(nextStage({ stage: "show", correct: true })).toBe("done");
   });
 
-  it("оценка FSRS по первому шагу и скорости", () => {
-    const correct = { stage: "type", verdict: "correct" } as const;
-    expect(gradeAttempt(correct, "fast")).toBe(Rating.Easy);
-    expect(gradeAttempt(correct, "normal")).toBe(Rating.Good);
-    expect(gradeAttempt(correct, "slow")).toBe(Rating.Hard);
-    expect(gradeAttempt({ stage: "type", verdict: "typo" }, "fast")).toBe(
-      Rating.Hard,
-    );
-    expect(gradeAttempt({ stage: "type", verdict: "wrong" }, "fast")).toBe(
+  it("оценка FSRS: ввод — по скорости и опечатке", () => {
+    const typed = (verdict: "correct" | "typo") => ({
+      first: { stage: "type", verdict } as const,
+      deepest: "type" as const,
+      revealed: 0,
+      letters: 5,
+    });
+    expect(gradeAttempt(typed("correct"), "fast")).toBe(Rating.Easy);
+    expect(gradeAttempt(typed("correct"), "normal")).toBe(Rating.Good);
+    expect(gradeAttempt(typed("correct"), "slow")).toBe(Rating.Hard);
+    expect(gradeAttempt(typed("typo"), "fast")).toBe(Rating.Hard);
+  });
+
+  it("оценка FSRS: каждая подсказка снижает, выбор и показ — Again", () => {
+    const hinted = (revealed: number, letters = 11) => ({
+      first: { stage: "type", verdict: "wrong" } as const,
+      deepest: "hint" as const,
+      revealed,
+      letters,
+    });
+    expect(gradeAttempt(hinted(0), "fast")).toBe(Rating.Hard);
+    expect(gradeAttempt(hinted(2), "fast")).toBe(Rating.Hard);
+    expect(gradeAttempt(hinted(3), "fast")).toBe(Rating.Again);
+    expect(gradeAttempt({ ...hinted(0), deepest: "choice" }, "fast")).toBe(
       Rating.Again,
     );
-    expect(gradeAttempt({ stage: "choice", correct: true }, "fast")).toBe(
+    expect(gradeAttempt({ ...hinted(0), deepest: "show" }, "fast")).toBe(
       Rating.Again,
     );
   });
 });
 
 describe("интервалы", () => {
+  it("знание: 0 у нового, мало после провала, больше после верного, не больше 100%", () => {
+    expect(knowledge(newCard(start))).toBe(0);
+    const failed = knowledge(reviewCard(newCard(start), Rating.Again, start));
+    const hinted = knowledge(reviewCard(newCard(start), Rating.Hard, start));
+    const recalled = knowledge(reviewCard(newCard(start), Rating.Good, start));
+    expect(failed).toBeLessThan(0.05);
+    expect(hinted).toBeGreaterThan(failed);
+    expect(recalled).toBeGreaterThan(hinted);
+    expect(
+      knowledge({ ...newCard(start), state: State.Review, stability: 400 }),
+    ).toBe(1);
+  });
+
   it("новое слово: вероятность 0, статус «новое»", () => {
     const card = newCard(start);
     expect(recallProbability(card, start)).toBe(0);

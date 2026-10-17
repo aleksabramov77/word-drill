@@ -34,9 +34,10 @@ const searchQuerySchema = z.object({
 const idSchema = z.coerce.number().int().positive();
 
 const stepSchema = z.object({
-  stage: z.enum(["type", "choice", "show"]),
+  stage: z.enum(["type", "hint", "choice", "show"]),
   input: z.string().max(200),
   elapsedMs: z.number().int().min(0).max(3_600_000).optional(),
+  action: z.enum(["reveal", "choices"]).optional(),
 });
 
 async function body(req: { json: () => Promise<unknown> }): Promise<unknown> {

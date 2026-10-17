@@ -5,6 +5,7 @@ CREATE TABLE `reviews` (
 	`at` integer NOT NULL,
 	`first` text NOT NULL,
 	`deepest` text NOT NULL,
+	`hints` integer DEFAULT 0 NOT NULL,
 	`grade` integer NOT NULL,
 	`elapsed_ms` integer,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,

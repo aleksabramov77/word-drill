@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const stageSchema = z.enum(["type", "choice", "show"]);
+export const stageSchema = z.enum(["type", "hint", "choice", "show"]);
 export type Stage = z.infer<typeof stageSchema>;
 
 export const verdictSchema = z.enum([
@@ -34,6 +34,9 @@ export const stepResultSchema = z.object({
   correct: z.boolean(),
   expected: z.string(),
   next: z.union([stageSchema, z.literal("done")]),
+  /** Заготовка: null — скрытая буква. */
+  mask: z.array(z.string().nullable()).optional(),
+  revealed: z.number().optional(),
   options: z.array(z.string()).optional(),
   outcome: z
     .object({
@@ -41,7 +44,10 @@ export const stepResultSchema = z.object({
       status: z.enum(["new", "learning", "errors", "learned"]),
       hot: z.boolean(),
       due: z.string(),
+      knowledge: z.number(),
     })
     .optional(),
 });
 export type StepResult = z.infer<typeof stepResultSchema>;
+
+export type HintAction = "reveal" | "choices";

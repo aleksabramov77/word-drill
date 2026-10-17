@@ -1,3 +1,4 @@
+import { Lightbulb, ListChecks } from "lucide-react";
 import {
   type FormEvent,
   useEffect,
@@ -11,17 +12,19 @@ import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
-import { useAnswerStep } from "../api/drillApi.ts";
+import { type StepRequest, useAnswerStep } from "../api/drillApi.ts";
 import { useAnswerStore } from "../model/store.ts";
 import type { DrillCard, StepResult, Verdict } from "../model/types.ts";
 import { AnswerDiff } from "./AnswerDiff.tsx";
+import { HintMask } from "./HintMask.tsx";
 
-const VERDICT_TEXT: Record<Verdict, string> = {
-  correct: "Верно!",
-  typo: "Почти! Знаешь, но с ошибкой",
-  partial: "Близко, но ошибок много — выбери правильный вариант",
-  "other-word": "Это перевод другого слова — выбери правильный вариант",
-  wrong: "Не то — выбери правильный вариант",
+/** Что сказать после неудачного ввода, когда открывается заготовка. */
+const HINT_INTRO: Record<Verdict, string> = {
+  correct: "",
+  typo: "",
+  partial: "Близко, но ошибок много. Вспомни по подсказке:",
+  "other-word": "Это перевод другого слова. Вспомни по подсказке:",
+  wrong: "Вспомни по подсказке:",
 };
 
 function TextAnswer({
@@ -68,36 +71,40 @@ function TextAnswer({
 
 function Outcome({
   result,
+  via,
   onNext,
 }: {
   result: StepResult;
+  via: "type" | "hint" | "other";
   onNext: () => void;
 }) {
-  const last = useAnswerStore((s) => s.last);
   const nextRef = useRef<HTMLButtonElement>(null);
   useEffect(() => nextRef.current?.focus(), []);
-  const typed = last?.verdict;
+  const typed = via !== "other";
+  const title = !typed
+    ? "Запомни:"
+    : result.verdict === "typo"
+      ? "Почти! Знаешь, но с ошибкой"
+      : via === "hint"
+        ? "Верно, с подсказкой"
+        : "Верно!";
   return (
     <div className="flex flex-col gap-3">
       <p
         className={cn(
           "font-medium text-lg",
-          typed === "correct"
-            ? "text-success"
-            : typed === "typo"
-              ? "text-amber-600"
-              : "",
+          typed && result.verdict === "correct" && "text-success",
+          typed && result.verdict === "typo" && "text-amber-600",
         )}
       >
-        {typed === "correct" || typed === "typo"
-          ? VERDICT_TEXT[typed]
-          : "Запомни:"}
+        {title}
       </p>
       <p className="font-semibold text-2xl">{result.expected}</p>
       {result.outcome && (
-        <p className="flex items-center gap-2 text-muted-foreground text-sm">
+        <p className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
           <WordStatusBadge status={result.outcome.status} />
-          снова {untilText(new Date(result.outcome.due))}
+          знание {Math.round(result.outcome.knowledge * 100)}% · снова{" "}
+          {untilText(new Date(result.outcome.due))}
         </p>
       )}
       <Button ref={nextRef} size="lg" onClick={onNext}>
@@ -114,30 +121,44 @@ export function AnswerCard({
   card: DrillCard;
   onNext: () => void;
 }) {
-  const { stage, shownAt, last, options, done, start, apply } =
+  const { stage, shownAt, last, mask, revealed, options, done, start, apply } =
     useAnswerStore();
   const step = useAnswerStep();
-  const [typedInput, setTypedInput] = useState("");
+  const [lastInput, setLastInput] = useState("");
+  /** Сколько раз отвечали на шаге подсказок — чтобы сбрасывать поле после неверной попытки. */
+  const [hintTries, setHintTries] = useState(0);
+  const [showTries, setShowTries] = useState(0);
+  /** До какого шага дошли: «Верно!» показываем, только если вспомнил сам (ввод или подсказки). */
+  const [deepest, setDeepest] = useState<"type" | "hint" | "other">("type");
 
   useLayoutEffect(() => {
     start(card.wordId);
-    setTypedInput("");
+    setLastInput("");
+    setHintTries(0);
+    setShowTries(0);
+    setDeepest("type");
   }, [card.wordId, start]);
 
-  const send = (input: string) =>
+  const send = (request: Omit<StepRequest, "wordId" | "stage">) =>
     step.mutate(
-      {
-        wordId: card.wordId,
-        stage,
-        input,
-        ...(stage === "type" ? { elapsedMs: Date.now() - shownAt } : {}),
-      },
+      { wordId: card.wordId, stage, ...request },
       {
         onSuccess: (result) => {
-          if (stage === "type") setTypedInput(input);
+          if (!request.action) setLastInput(request.input);
+          if (stage === "hint" && !request.action) setHintTries((n) => n + 1);
+          if (stage === "show" && !result.correct) setShowTries((n) => n + 1);
+          if (result.next === "choice" || result.next === "show") {
+            setDeepest("other");
+          } else if (result.next === "hint") {
+            setDeepest((d) => (d === "type" ? "hint" : d));
+          }
           apply(result);
         },
       },
+    );
+  const answer = (input: string) =>
+    send(
+      stage === "type" ? { input, elapsedMs: Date.now() - shownAt } : { input },
     );
 
   return (
@@ -159,37 +180,72 @@ export function AnswerCard({
           )}
         </div>
 
-        {last?.verdict === "typo" && done && (
-          <AnswerDiff input={typedInput} expected={last.expected} />
+        {done?.verdict === "typo" && (
+          <AnswerDiff input={lastInput} expected={done.expected} />
         )}
 
         {done ? (
-          <Outcome result={done} onNext={onNext} />
+          <Outcome result={done} via={deepest} onNext={onNext} />
         ) : stage === "type" ? (
           <div className="flex flex-col gap-2">
             <TextAnswer
               placeholder="Напиши по-английски"
               submitLabel="Проверить"
-              onSubmit={send}
+              onSubmit={answer}
               disabled={step.isPending}
             />
             <Button
               variant="ghost"
               disabled={step.isPending}
-              onClick={() => send("")}
+              onClick={() => answer("")}
             >
               Не помню
             </Button>
           </div>
+        ) : stage === "hint" ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm">
+              {hintTries > 0 && last?.correct === false
+                ? "Не то — открыл ещё одну букву:"
+                : last?.verdict
+                  ? HINT_INTRO[last.verdict]
+                  : "Вспомни по подсказке:"}
+            </p>
+            <HintMask mask={mask} />
+            <p className="text-muted-foreground text-xs">
+              Подсказок: {revealed}. Каждая открытая буква — слово вернётся
+              раньше.
+            </p>
+            <TextAnswer
+              key={`hint-${hintTries}`}
+              placeholder="Допиши слово"
+              submitLabel="Проверить"
+              onSubmit={answer}
+              disabled={step.isPending}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                disabled={step.isPending}
+                onClick={() => send({ input: "", action: "reveal" })}
+              >
+                <Lightbulb />
+                Ещё буква
+              </Button>
+              <Button
+                variant="outline"
+                disabled={step.isPending}
+                onClick={() => send({ input: "", action: "choices" })}
+              >
+                <ListChecks />
+                Варианты
+              </Button>
+            </div>
+          </div>
         ) : stage === "choice" ? (
           <div className="flex flex-col gap-3">
-            {last?.verdict && (
-              <p className="text-sm">{VERDICT_TEXT[last.verdict]}</p>
-            )}
-            {last?.verdict === "partial" && (
-              <AnswerDiff input={typedInput} expected={last.expected} />
-            )}
-            <div className="grid grid-cols-2 gap-2">
+            <p className="text-sm">Выбери правильный вариант:</p>
+            <div className="grid grid-cols-2 gap-2" data-testid="choices">
               {options.map((option) => (
                 <Button
                   key={option}
@@ -197,7 +253,7 @@ export function AnswerCard({
                   size="lg"
                   className="h-auto min-h-12 whitespace-normal"
                   disabled={step.isPending}
-                  onClick={() => send(option)}
+                  onClick={() => answer(option)}
                 >
                   {option}
                 </Button>
@@ -207,20 +263,18 @@ export function AnswerCard({
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-sm">
-              {last?.correct === false &&
-              last.next === "show" &&
-              last.verdict === undefined
-                ? "Правильный ответ — перепиши его, чтобы запомнить:"
-                : "Перепиши:"}
+              {showTries > 0
+                ? "Не совпало — перепиши точно:"
+                : "Правильный ответ — перепиши его, чтобы запомнить:"}
             </p>
             <p className="font-semibold text-2xl">{last?.expected}</p>
             <TextAnswer
-              key={`show-${last?.expected}`}
+              key={`show-${showTries}`}
               placeholder="Перепиши слово"
               submitLabel="Готово"
-              onSubmit={send}
+              onSubmit={answer}
               disabled={step.isPending}
-              invalid={last?.next === "show" && step.isSuccess && !last.correct}
+              invalid={showTries > 0}
             />
           </div>
         )}

@@ -9,6 +9,10 @@ interface AnswerState {
   shownAt: number;
   /** Последний ответ сервера: вердикт, правильное слово, варианты. */
   last: StepResult | null;
+  /** Заготовка для подсказок (null — скрытая буква). */
+  mask: (string | null)[];
+  /** Сколько букв открыто подсказками. */
+  revealed: number;
   options: string[];
   /** Показ закончен — ждём «Дальше». */
   done: StepResult | null;
@@ -21,6 +25,8 @@ export const useAnswerStore = create<AnswerState>((set) => ({
   stage: "type",
   shownAt: 0,
   last: null,
+  mask: [],
+  revealed: 0,
   options: [],
   done: null,
   start: (wordId, now = Date.now()) =>
@@ -29,6 +35,8 @@ export const useAnswerStore = create<AnswerState>((set) => ({
       stage: "type",
       shownAt: now,
       last: null,
+      mask: [],
+      revealed: 0,
       options: [],
       done: null,
     }),
@@ -36,6 +44,8 @@ export const useAnswerStore = create<AnswerState>((set) => ({
     set((state) => ({
       last: result,
       stage: result.next === "done" ? state.stage : result.next,
+      mask: result.mask ?? state.mask,
+      revealed: result.revealed ?? state.revealed,
       options: result.options ?? state.options,
       done: result.next === "done" ? result : null,
     })),

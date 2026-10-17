@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
+  type CheckResult,
   checkAnswer,
   letterCount,
   normalize,
@@ -10,10 +11,17 @@ import {
   shuffle,
 } from "../../src/shared/lib/distractors/index.ts";
 import {
+  hintLetters,
+  maskAnswer,
+  nextHintIndex,
+} from "../../src/shared/lib/hints/index.ts";
+import {
   type Card,
   classifySpeed,
+  deeperStage,
   gradeAttempt,
   isHot,
+  knowledge,
   newCard,
   nextStage,
   pushSpeedSample,
@@ -70,6 +78,7 @@ function toView(row: WordRow, now: Date): WordView {
     ),
     hot: isHot(card),
     recall: recallProbability(card, now),
+    knowledge: knowledge(card),
     due: card.due.toISOString(),
     reps: card.reps,
     lapses: card.lapses,
@@ -266,7 +275,15 @@ function finish(
   attempt: Attempt,
   now: Date,
 ): NonNullable<StepResult["outcome"]> {
-  const grade = gradeAttempt(attempt.first, attempt.speed);
+  const grade = gradeAttempt(
+    {
+      first: attempt.first,
+      deepest: attempt.deepest,
+      revealed: attempt.revealed.length,
+      letters: hintLetters(row.answers[0] ?? ""),
+    },
+    attempt.speed,
+  );
   const card = reviewCard(fromStoredCard(row.card), grade, now);
   db.update(words)
     .set({
@@ -283,7 +300,8 @@ function finish(
       wordId: row.id,
       at: now,
       first: attempt.first,
-      deepest: attempt.stage,
+      deepest: attempt.deepest,
+      hints: attempt.revealed.length,
       grade,
       elapsedMs: attempt.elapsedMs,
     })
@@ -293,7 +311,88 @@ function finish(
     status: wordStatus(card, grade),
     hot: isHot(card),
     due: card.due.toISOString(),
+    knowledge: knowledge(card),
   };
+}
+
+function typeStep(
+  db: Db,
+  userId: string,
+  row: WordRow,
+  step: StepInput,
+): { result: StageResult; attempt: Attempt; checked: CheckResult } {
+  const checked = checkAnswer(
+    step.input,
+    row.answers,
+    otherAnswers(db, userId, row.id),
+  );
+  const result: StageResult = { stage: "type", verdict: checked.verdict };
+  let speed: Speed = "normal";
+  const elapsedMs = step.elapsedMs ?? null;
+  if (
+    elapsedMs !== null &&
+    (checked.verdict === "correct" || checked.verdict === "typo")
+  ) {
+    const user = db.select().from(users).where(eq(users.id, userId)).get();
+    const sample = { elapsedMs, letters: letterCount(checked.expected) };
+    const history = user?.speedHistory ?? [];
+    speed = classifySpeed(sample, history);
+    db.update(users)
+      .set({ speedHistory: pushSpeedSample(history, sample) })
+      .where(eq(users.id, userId))
+      .run();
+  }
+  return {
+    result,
+    attempt: {
+      first: result,
+      speed,
+      stage: "type",
+      deepest: "type",
+      revealed: [],
+      elapsedMs,
+    },
+    checked,
+  };
+}
+
+/** Шаг подсказок: открыть букву, перейти к вариантам или проверить ответ (неверный — открывает ещё букву). */
+function hintStep(
+  row: WordRow,
+  step: StepInput,
+  attempt: Attempt,
+): { result: StageResult; revealed: number[]; checked?: CheckResult } {
+  const answer = row.answers[0] ?? "";
+  const revealed = [...attempt.revealed];
+  const reveal = () => {
+    const index = nextHintIndex(answer, revealed);
+    if (index !== null) revealed.push(index);
+    return index !== null;
+  };
+
+  if (step.action === "choices") {
+    return {
+      result: { stage: "hint", correct: false, exhausted: false, giveUp: true },
+      revealed,
+    };
+  }
+  if (step.action === "reveal") {
+    return {
+      result: { stage: "hint", correct: false, exhausted: !reveal() },
+      revealed,
+    };
+  }
+  const checked = checkAnswer(step.input, row.answers);
+  const correct = checked.verdict === "correct" || checked.verdict === "typo";
+  if (correct)
+    return {
+      result: { stage: "hint", correct, exhausted: false },
+      revealed,
+      checked,
+    };
+  const revealedMore = reveal();
+  const exhausted = !revealedMore || revealed.length * 2 > hintLetters(answer);
+  return { result: { stage: "hint", correct, exhausted }, revealed, checked };
 }
 
 /** Один шаг лестницы для слова: проверить ответ, решить, что дальше, и в конце показа обновить FSRS. */
@@ -307,46 +406,39 @@ export function answerStep(
 ): StepResult | null {
   const row = findWord(db, userId, wordId);
   if (!row) return null;
-  const expected = row.answers[0] ?? "";
+  const answer = row.answers[0] ?? "";
 
   let result: StageResult;
   let attempt: Attempt;
-  let checked: ReturnType<typeof checkAnswer> | undefined;
+  let checked: CheckResult | undefined;
 
   if (step.stage === "type") {
-    checked = checkAnswer(
-      step.input,
-      row.answers,
-      otherAnswers(db, userId, wordId),
-    );
-    result = { stage: "type", verdict: checked.verdict };
-    let speed: Speed = "normal";
-    const elapsedMs = step.elapsedMs ?? null;
-    if (
-      elapsedMs !== null &&
-      (checked.verdict === "correct" || checked.verdict === "typo")
-    ) {
-      const user = db.select().from(users).where(eq(users.id, userId)).get();
-      const sample = { elapsedMs, letters: letterCount(checked.expected) };
-      const history = user?.speedHistory ?? [];
-      speed = classifySpeed(sample, history);
-      db.update(users)
-        .set({ speedHistory: pushSpeedSample(history, sample) })
-        .where(eq(users.id, userId))
-        .run();
-    }
-    attempt = { first: result, speed, stage: "type", elapsedMs };
+    ({ result, attempt, checked } = typeStep(db, userId, row, step));
   } else {
-    const correct =
-      step.stage === "choice"
-        ? row.answers.some(
-            (answer) => normalize(answer) === normalize(step.input),
-          )
-        : checkAnswer(step.input, row.answers).verdict === "correct";
-    result = { stage: step.stage, correct };
-    attempt = row.attempt
-      ? { ...row.attempt, stage: step.stage }
-      : { first: result, speed: "normal", stage: step.stage, elapsedMs: null };
+    // Шаги ниже ввода продолжают начатый показ; без него (страница открыта заново) — считаем, что ввод не удался.
+    const current: Attempt = row.attempt ?? {
+      first: { stage: "type", verdict: "wrong" },
+      speed: "normal",
+      stage: step.stage,
+      deepest: step.stage,
+      revealed: [],
+      elapsedMs: null,
+    };
+    let revealed = current.revealed;
+    if (step.stage === "hint") {
+      ({ result, revealed, checked } = hintStep(row, step, current));
+    } else {
+      const correct =
+        step.stage === "choice"
+          ? row.answers.some((a) => normalize(a) === normalize(step.input))
+          : checkAnswer(step.input, row.answers).verdict === "correct";
+      result = { stage: step.stage, correct };
+    }
+    attempt = {
+      ...current,
+      revealed,
+      deepest: deeperStage(current.deepest, step.stage),
+    };
   }
 
   const next = nextStage(result);
@@ -354,17 +446,28 @@ export function answerStep(
   const base: StepResult = {
     ...(checked ? { verdict: checked.verdict } : {}),
     correct,
-    expected: checked?.expected ?? expected,
+    expected: checked?.expected ?? answer,
     next,
   };
-  if (next === "done")
+  if (next === "done") {
     return { ...base, outcome: finish(db, row, attempt, now) };
+  }
 
-  db.update(words)
-    .set({ attempt: { ...attempt, stage: next } })
-    .where(eq(words.id, row.id))
-    .run();
-  return next === "choice"
-    ? { ...base, options: choiceOptions(db, userId, row, dictionary) }
-    : base;
+  attempt = {
+    ...attempt,
+    stage: next,
+    deepest: deeperStage(attempt.deepest, next),
+  };
+  db.update(words).set({ attempt }).where(eq(words.id, row.id)).run();
+  if (next === "hint") {
+    return {
+      ...base,
+      mask: maskAnswer(answer, attempt.revealed),
+      revealed: attempt.revealed.length,
+    };
+  }
+  if (next === "choice") {
+    return { ...base, options: choiceOptions(db, userId, row, dictionary) };
+  }
+  return base;
 }

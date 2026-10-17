@@ -3,6 +3,7 @@ import { wordKeys } from "@/entities/word";
 import { apiFetch } from "@/shared/api";
 import {
   drillQueueSchema,
+  type HintAction,
   type Stage,
   stepResultSchema,
 } from "../model/types.ts";
@@ -17,18 +18,18 @@ export function useDrillQueue() {
   });
 }
 
+export interface StepRequest {
+  wordId: number;
+  stage: Stage;
+  input: string;
+  elapsedMs?: number;
+  action?: HintAction;
+}
+
 export function useAnswerStep() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      wordId,
-      ...step
-    }: {
-      wordId: number;
-      stage: Stage;
-      input: string;
-      elapsedMs?: number;
-    }) =>
+    mutationFn: ({ wordId, ...step }: StepRequest) =>
       apiFetch(`/drill/${wordId}/step`, {
         method: "POST",
         body: step,

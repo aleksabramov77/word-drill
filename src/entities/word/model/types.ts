@@ -16,6 +16,7 @@ export const wordSchema = z.object({
   status: wordStatusSchema,
   hot: z.boolean(),
   recall: z.number(),
+  knowledge: z.number(),
   due: z.string(),
   reps: z.number(),
   lapses: z.number(),

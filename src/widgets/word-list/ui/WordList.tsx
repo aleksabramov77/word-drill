@@ -54,7 +54,12 @@ function WordRow({ word }: { word: Word }) {
               aria-label="горячий круг"
             />
           )}
-          {word.status !== "new" && <span>повтор {untilText(due)}</span>}
+          {word.status !== "new" && (
+            <span>
+              знание {Math.round(word.knowledge * 100)}% · повтор{" "}
+              {untilText(due)}
+            </span>
+          )}
         </span>
       </div>
       <DeleteButton word={word} />

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0122033e-109b-4555-a846-74101c855b63",
+  "id": "00b042f4-3987-49cb-a313-fb282bdb7c36",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "reviews": {
@@ -48,6 +48,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "hints": {
+          "name": "hints",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         },
         "grade": {
           "name": "grade",
