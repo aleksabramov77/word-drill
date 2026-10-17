@@ -7,7 +7,10 @@ import { DEFAULT_SETTINGS, type UserSettings } from "../users.ts";
 import { decidePush, localTime, type PushHistory } from "./decide.ts";
 import type { PushPayload, PushSender } from "./sender.ts";
 
-const DAY = 24 * 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+const DAY = 24 * 60 * MINUTE;
+/** Только что добавленное слово ещё перед глазами — в уведомления оно попадает не раньше, чем через час. */
+export const NEW_WORD_DELAY_MINUTES = 60;
 
 export const subscriptionSchema = z.object({
   subscription: z.object({
@@ -201,6 +204,7 @@ export async function pushTick(
     if (!decision.send) continue;
     const { card } = drillQueue(db, userId, now, {
       includeNew: decision.allowNew,
+      newAddedBefore: new Date(now.getTime() - NEW_WORD_DELAY_MINUTES * MINUTE),
     });
     if (!card) continue;
     const delivered = await deliver(
