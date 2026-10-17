@@ -28,6 +28,10 @@ test("лестница: ввод → подсказки по буквам → в
   await page.getByRole("link", { name: "Тренировка" }).click();
   await expect(page.getByRole("heading", { name: "кровь" })).toBeVisible();
   await expect(page.getByText("5 букв")).toBeVisible();
+  // Пустой ответ не отправить: случайный Enter не засчитывается как «Не помню».
+  await expect(page.getByRole("button", { name: "Проверить" })).toBeDisabled();
+  await page.getByLabel("Ответ по-английски").press("Enter");
+  await expect(page.getByText("Вспомни по подсказке:")).toBeHidden();
   await page.getByRole("button", { name: "Не помню" }).click();
 
   const mask = page.getByTestId("hint-mask");

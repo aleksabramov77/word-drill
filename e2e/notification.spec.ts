@@ -16,9 +16,9 @@ test("нажатие на уведомление при открытом при�
 }) => {
   const id = await addWord(page, "ветер", "wind");
 
-  // Приложение открыто на «Настройках».
-  await page.getByRole("link", { name: "Настройки" }).click();
-  await expect(page.getByRole("heading", { name: "Настройки" })).toBeVisible();
+  // Приложение открыто на «Ещё».
+  await page.getByRole("link", { name: "Ещё", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Ещё" })).toBeVisible();
 
   // Так service worker реагирует на нажатие уведомления (src/app/sw.ts → notificationclick).
   const worker =
@@ -47,8 +47,8 @@ test("сообщение потерялось (iPhone будит приложе�
   page,
 }) => {
   const id = await addWord(page, "гора", "mountain");
-  await page.getByRole("link", { name: "Настройки" }).click();
-  await expect(page.getByRole("heading", { name: "Настройки" })).toBeVisible();
+  await page.getByRole("link", { name: "Ещё", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Ещё" })).toBeVisible();
 
   // Так service worker записывает нажатие (src/app/sw.ts), а сообщение до страницы не дошло.
   await page.evaluate(async (url) => {
@@ -68,7 +68,7 @@ test("старая запись о нажатии (больше минуты) н
   page,
 }) => {
   const id = await addWord(page, "река", "river");
-  await page.getByRole("link", { name: "Настройки" }).click();
+  await page.getByRole("link", { name: "Ещё", exact: true }).click();
   await page.evaluate(async (url) => {
     const cache = await caches.open("pending-open");
     await cache.put(
@@ -78,5 +78,5 @@ test("старая запись о нажатии (больше минуты) н
     document.dispatchEvent(new Event("visibilitychange"));
   }, `/?word=${id}`);
   await page.waitForTimeout(3000);
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/more$/);
 });

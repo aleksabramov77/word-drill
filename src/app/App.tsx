@@ -1,15 +1,22 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { createBrowserRouter, RouterProvider } from "react-router";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+  useParams,
+} from "react-router";
 import { useMe } from "@/entities/session";
 import { AdminPage } from "@/pages/admin";
 import { DrillPage } from "@/pages/drill";
 import { LoginPage } from "@/pages/login";
+import { MorePage } from "@/pages/more";
 import { PrivacyPage } from "@/pages/privacy";
-import { SettingsPage } from "@/pages/settings";
+import { SharePage } from "@/pages/share";
 import { WordsPage } from "@/pages/words";
 import { queryClient } from "@/shared/api";
 import { Layout } from "./Layout.tsx";
 import { useOpenFromNotification } from "./openFromNotification.ts";
+import { UpdateBanner } from "./UpdateBanner.tsx";
 
 const router = createBrowserRouter([
   {
@@ -17,13 +24,21 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <DrillPage /> },
       { path: "/words", element: <WordsPage /> },
-      { path: "/settings/:section?", element: <SettingsPage /> },
+      { path: "/more/:section?", element: <MorePage /> },
+      { path: "/settings/:section?", element: <SettingsRedirect /> },
+      { path: "/share", element: <SharePage /> },
       { path: "/admin", element: <AdminPage /> },
       { path: "/privacy", element: <PrivacyPage /> },
       { path: "*", element: <DrillPage /> },
     ],
   },
 ]);
+
+/** Старые адреса «Настроек» (ссылки, закладки) ведут в «Ещё». */
+function SettingsRedirect() {
+  const { section } = useParams();
+  return <Navigate to={section ? `/more/${section}` : "/more"} replace />;
+}
 
 /** Без входа — только экран входа и политика конфиденциальности; приложение грузится после /api/auth/me. */
 function AuthGate() {
@@ -61,6 +76,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthGate />
+      <UpdateBanner />
     </QueryClientProvider>
   );
 }
