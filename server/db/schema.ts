@@ -6,6 +6,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import type { SpeedSample } from "../../src/shared/lib/srs/index.ts";
+import type { AccessStatus } from "../auth/access.ts";
 import type { Attempt, StoredCard, WordSource } from "../drill/types.ts";
 import type { UserSettings } from "../users.ts";
 
@@ -34,6 +35,18 @@ export const sessions = sqliteTable(
   },
   (t) => [index("sessions_user").on(t.userId)],
 );
+
+/**
+ * Кто может входить (кроме ALLOWED_EMAILS — админов): заявки и решения админа.
+ * pending — заявка ждёт решения; approved — пускать; denied — не пускать.
+ */
+export const access = sqliteTable("access", {
+  email: text("email").primaryKey(),
+  status: text("status").$type<AccessStatus>().notNull(),
+  name: text("name").notNull().default(""),
+  requestedAt: integer("requested_at", { mode: "timestamp_ms" }),
+  decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
+});
 
 /** Личные токены для «Команд» iOS и других скриптов (Authorization: Bearer). В базе — только хэш. */
 export const apiTokens = sqliteTable(

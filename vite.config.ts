@@ -7,6 +7,8 @@ import { defineConfig } from "vitest/config";
 // В dev Vite отдаёт клиент, а /api проксирует на Hono (scripts/dev.ts задаёт API_PORT).
 // В проде клиент собирается в dist/client, и его раздаёт сам Hono (server/main.ts).
 const apiPort = process.env.API_PORT ?? "5100";
+// Время сборки — в «Настройках», чтобы было видно, что новая версия дошла до телефона.
+process.env.VITE_BUILD_TIME ??= new Date().toISOString();
 
 export default defineConfig({
   plugins: [

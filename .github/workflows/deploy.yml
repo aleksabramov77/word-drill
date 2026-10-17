@@ -1,0 +1,66 @@
+name: Deploy
+
+# Выкатка на VM apps-tokyo (https://words.13.114.11.53.sslip.io): после зелёного CI на main — сама,
+# вручную — с любой ветки или коммита. Шаги — scripts/deploy.sh (тот же скрипт работает и с Mac).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Ветка или коммит для выкатки
+        required: true
+        default: main
+
+concurrency:
+  group: deploy-words
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: build → rsync → restart
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    env:
+      VM_HOST: ${{ secrets.APPS_TOKYO_HOST }}
+      VM_USER: ${{ secrets.APPS_TOKYO_USER }}
+      VM_SSH_KEY: ${{ secrets.APPS_TOKYO_SSH_KEY }}
+    steps:
+      - name: Секреты заданы?
+        run: |
+          if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ] || [ -z "$VM_SSH_KEY" ]; then
+            echo "::error::Нет секретов APPS_TOKYO_HOST / APPS_TOKYO_USER / APPS_TOKYO_SSH_KEY (README → Выкатка)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.ref }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Выкатка
+        run: bash scripts/deploy.sh
