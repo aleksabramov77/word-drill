@@ -35,6 +35,41 @@ export const sessions = sqliteTable(
   (t) => [index("sessions_user").on(t.userId)],
 );
 
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent").notNull().default(""),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("push_subscriptions_user").on(t.userId)],
+);
+
+/** Отправленные уведомления: по ним считаются пауза, дневной лимит и пуши без ответа. */
+export const pushLog = sqliteTable(
+  "push_log",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    wordId: integer("word_id").references(() => words.id, {
+      onDelete: "set null",
+    }),
+    isNew: integer("is_new", { mode: "boolean" }).notNull(),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }).notNull(),
+    /** Когда пользователь ответил (любой шаг тренировки после пуша). */
+    answeredAt: integer("answered_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("push_log_user_sent").on(t.userId, t.sentAt)],
+);
+
 export const words = sqliteTable(
   "words",
   {

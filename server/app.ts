@@ -19,6 +19,18 @@ import {
   updateWord,
   updateWordSchema,
 } from "./drill/service.ts";
+import type { PushSender } from "./push/sender.ts";
+import {
+  deleteSubscription,
+  getSettings,
+  markPushesAnswered,
+  saveSubscription,
+  sendTestPush,
+  settingsSchema,
+  subscriptionCount,
+  subscriptionSchema,
+  updateSettings,
+} from "./push/service.ts";
 
 export interface AppDeps {
   db: Db;
@@ -26,6 +38,8 @@ export interface AppDeps {
   /** По умолчанию — dev: все запросы от локального пользователя. */
   auth?: AuthConfig;
   identity?: IdentityProvider;
+  /** Нет VAPID-ключей — уведомления выключены. */
+  pusher?: PushSender;
   now?: () => Date;
 }
 
@@ -57,6 +71,7 @@ export function createApp({
   dictionary,
   auth = { mode: "dev", email: "local@localhost" },
   identity,
+  pusher,
   now = () => new Date(),
 }: AppDeps) {
   const app = new Hono<AuthEnv>().basePath("/api");
@@ -111,7 +126,14 @@ export function createApp({
       : c.json({ error: "not found" }, 404);
   });
 
-  app.get("/drill/next", (c) => c.json(drillQueue(db, c.get("userId"), now())));
+  app.get("/drill/next", (c) => {
+    const word = idSchema.safeParse(c.req.query("word"));
+    return c.json(
+      drillQueue(db, c.get("userId"), now(), {
+        prefer: word.success ? word.data : undefined,
+      }),
+    );
+  });
 
   app.post("/drill/:wordId/step", async (c) => {
     const id = idSchema.safeParse(c.req.param("wordId"));
@@ -126,7 +148,58 @@ export function createApp({
       parsed.data,
       now(),
     );
+    if (result) markPushesAnswered(db, c.get("userId"), now());
     return result ? c.json(result) : c.json({ error: "not found" }, 404);
+  });
+
+  app.get("/settings", (c) =>
+    c.json({ settings: getSettings(db, c.get("userId")) }),
+  );
+
+  app.patch("/settings", async (c) => {
+    const parsed = settingsSchema.safeParse(await body(c.req));
+    if (!parsed.success) return c.json({ error: "bad settings" }, 400);
+    const settings = updateSettings(db, c.get("userId"), parsed.data);
+    if (settings === "bad-window") return c.json({ error: "bad window" }, 400);
+    return c.json({ settings });
+  });
+
+  app.get("/push/config", (c) =>
+    c.json({
+      enabled: Boolean(pusher),
+      publicKey: pusher?.publicKey ?? null,
+      subscriptions: subscriptionCount(db, c.get("userId")),
+    }),
+  );
+
+  app.post("/push/subscribe", async (c) => {
+    if (!pusher) return c.json({ error: "push disabled" }, 503);
+    const parsed = subscriptionSchema.safeParse(await body(c.req));
+    if (!parsed.success) return c.json({ error: "bad subscription" }, 400);
+    saveSubscription(
+      db,
+      c.get("userId"),
+      parsed.data,
+      c.req.header("user-agent") ?? "",
+      now(),
+    );
+    return c.json({ ok: true }, 201);
+  });
+
+  app.post("/push/unsubscribe", async (c) => {
+    const parsed = z
+      .object({ endpoint: z.string().max(1000) })
+      .safeParse(await body(c.req));
+    if (!parsed.success) return c.json({ error: "bad endpoint" }, 400);
+    deleteSubscription(db, c.get("userId"), parsed.data.endpoint);
+    return c.body(null, 204);
+  });
+
+  app.post("/push/test", async (c) => {
+    if (!pusher) return c.json({ error: "push disabled" }, 503);
+    return c.json({
+      delivered: await sendTestPush(db, pusher, c.get("userId")),
+    });
   });
 
   return app;

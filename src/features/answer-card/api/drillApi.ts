@@ -10,10 +10,14 @@ import {
 
 export const drillKeys = { next: ["drill", "next"] as const };
 
-export function useDrillQueue() {
+/** Очередь тренировки; word — слово из уведомления, его показать первым. */
+export function useDrillQueue(word?: number) {
   return useQuery({
-    queryKey: drillKeys.next,
-    queryFn: () => apiFetch("/drill/next", { schema: drillQueueSchema }),
+    queryKey: [...drillKeys.next, word ?? null],
+    queryFn: () =>
+      apiFetch(word ? `/drill/next?word=${word}` : "/drill/next", {
+        schema: drillQueueSchema,
+      }),
     staleTime: 0,
   });
 }

@@ -1,4 +1,6 @@
 import { useLogout, useMe } from "@/entities/session";
+import { PushSettings } from "@/features/push-subscribe";
+import { ScheduleSettings } from "@/features/schedule-settings";
 import { Button } from "@/shared/ui/button";
 
 export function SettingsPage() {
@@ -7,6 +9,14 @@ export function SettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-semibold text-xl">Настройки</h1>
+      <section className="flex flex-col gap-2 rounded-xl border p-4">
+        <h2 className="font-medium">Уведомления</h2>
+        <PushSettings />
+      </section>
+      <section className="flex flex-col gap-2 rounded-xl border p-4">
+        <h2 className="font-medium">Расписание</h2>
+        <ScheduleSettings />
+      </section>
       <section className="flex flex-col gap-2 rounded-xl border p-4">
         <h2 className="font-medium">Аккаунт</h2>
         <p className="text-sm">

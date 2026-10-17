@@ -206,7 +206,13 @@ export function drillQueue(
   db: Db,
   userId: string,
   now: Date,
-  { includeNew = true }: { includeNew?: boolean } = {},
+  {
+    includeNew = true,
+    prefer,
+  }: {
+    includeNew?: boolean /** Слово из уведомления — показать его первым. */;
+    prefer?: number;
+  } = {},
 ): DrillQueue {
   const rows = userWords(db, userId).map((row) => ({
     row,
@@ -229,7 +235,11 @@ export function drillQueue(
     .filter(({ card }) => card.due.getTime() > now.getTime())
     .map(({ card }) => card.due.getTime());
 
-  const pick = due[0] ?? (includeNew ? fresh[0] : undefined);
+  const preferred =
+    prefer === undefined
+      ? undefined
+      : rows.find(({ row }) => row.id === prefer);
+  const pick = preferred ?? due[0] ?? (includeNew ? fresh[0] : undefined);
   return {
     card: pick
       ? {

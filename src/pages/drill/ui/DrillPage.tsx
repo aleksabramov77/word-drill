@@ -1,10 +1,14 @@
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { AnswerCard, useDrillQueue } from "@/features/answer-card";
 import { untilText } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 
 export function DrillPage() {
-  const { data: queue, isLoading, isError, refetch } = useDrillQueue();
+  // ?word=ID — пришли из уведомления: сначала это слово, дальше обычная очередь.
+  const [params, setParams] = useSearchParams();
+  const word = Number(params.get("word")) || undefined;
+  const { data: queue, isLoading, isError, refetch } = useDrillQueue(word);
+  const next = () => (word ? setParams({}) : refetch());
 
   if (isLoading) return <p className="text-muted-foreground">Загрузка…</p>;
   if (isError || !queue) {
@@ -22,7 +26,7 @@ export function DrillPage() {
         Пора повторить: {queue.dueCount} · Новых: {queue.newCount}
       </p>
       {queue.card ? (
-        <AnswerCard card={queue.card} onNext={() => refetch()} />
+        <AnswerCard card={queue.card} onNext={next} />
       ) : (
         <div className="flex flex-col items-start gap-3 rounded-xl border p-6">
           <p className="font-medium text-lg">Сейчас повторять нечего 🎉</p>

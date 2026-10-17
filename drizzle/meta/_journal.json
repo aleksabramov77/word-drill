@@ -15,6 +15,13 @@
       "when": 1792234549301,
       "tag": "0001_fancy_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792234867867,
+      "tag": "0002_tidy_famine",
+      "breakpoints": true
     }
   ]
 }

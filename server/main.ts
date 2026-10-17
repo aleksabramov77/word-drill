@@ -12,6 +12,8 @@ import {
   openDb,
 } from "./db/client.ts";
 import { DEFAULT_DICTIONARY_PATH, loadDictionary } from "./dictionary/index.ts";
+import { createWebPushSender, readVapidConfig } from "./push/sender.ts";
+import { pushTick } from "./push/service.ts";
 
 const port = Number(process.env.PORT ?? 5100);
 const isProd = process.env.NODE_ENV === "production";
@@ -27,6 +29,9 @@ const dictionary = loadDictionary(
   process.env.DICTIONARY_PATH ?? DEFAULT_DICTIONARY_PATH,
 );
 
+const vapid = readVapidConfig(process.env);
+const pusher = vapid ? createWebPushSender(vapid) : undefined;
+
 const root = new Hono();
 root.route(
   "/",
@@ -35,6 +40,7 @@ root.route(
     dictionary,
     auth,
     identity: auth.mode === "google" ? createGoogleProvider(auth) : undefined,
+    pusher,
   }),
 );
 if (isProd) {
@@ -45,6 +51,23 @@ if (isProd) {
 
 serve({ fetch: root.fetch, port, hostname: "127.0.0.1" }, (info) => {
   console.log(
-    `[word-drill] API: http://127.0.0.1:${info.port}, вход: ${auth.mode}, словарь: ${dictionary.words.length} слов, БД: ${databasePath}`,
+    `[word-drill] API: http://127.0.0.1:${info.port}, вход: ${auth.mode}, уведомления: ${pusher ? "вкл" : "выкл (нет VAPID)"}, словарь: ${dictionary.words.length} слов, БД: ${databasePath}`,
   );
 });
+
+// Планировщик уведомлений: раз в минуту решает, кому пора прислать слово (server/push/decide.ts).
+const PUSH_TICK_MS = 60_000;
+let ticking = false;
+async function tick() {
+  if (!pusher || ticking) return;
+  ticking = true;
+  try {
+    const { sent } = await pushTick(db, pusher, new Date());
+    if (sent > 0) console.log(`[word-drill] уведомлений отправлено: ${sent}`);
+  } catch (error) {
+    console.error("[word-drill] ошибка планировщика уведомлений", error);
+  } finally {
+    ticking = false;
+  }
+}
+if (pusher) setInterval(tick, PUSH_TICK_MS).unref();
