@@ -22,14 +22,31 @@ export function maskAnswer(
   return [...answer].map((ch, i) => (isLetter(ch) && !open.has(i) ? null : ch));
 }
 
-/** Индекс следующей буквы для подсказки или null, если осталась одна скрытая (её не открываем). */
+/** Индексы букв, которые уже верно вписаны в шаблон (их не открываем — открываем другие). */
+export function knownLetters(
+  answer: string,
+  cells: readonly string[],
+): number[] {
+  const chars = [...answer];
+  return chars
+    .map((ch, i) =>
+      isLetter(ch) && cells[i]?.toLowerCase() === ch.toLowerCase() ? i : -1,
+    )
+    .filter((i) => i >= 0);
+}
+
+/**
+ * Индекс следующей буквы для подсказки или null, если неизвестной осталась одна (её не открываем).
+ * known — буквы, уже верно вписанные в шаблон: они считаются известными и не открываются.
+ */
 export function nextHintIndex(
   answer: string,
   revealed: readonly number[],
   random = Math.random,
+  known: readonly number[] = [],
 ): number | null {
   const chars = [...answer];
-  const open = new Set(revealed);
+  const open = new Set([...revealed, ...known]);
   const hidden = chars
     .map((ch, i) => (isLetter(ch) && !open.has(i) ? i : -1))
     .filter((i) => i >= 0);

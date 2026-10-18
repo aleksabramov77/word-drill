@@ -12,6 +12,7 @@ import {
 } from "../../src/shared/lib/distractors/index.ts";
 import {
   hintLetters,
+  knownLetters,
   maskAnswer,
   nextHintIndex,
 } from "../../src/shared/lib/hints/index.ts";
@@ -432,7 +433,12 @@ function hintStep(
       hintLevel = 2;
       return true;
     }
-    const index = nextHintIndex(answer, revealed);
+    const index = nextHintIndex(
+      answer,
+      revealed,
+      Math.random,
+      knownLetters(answer, step.cells ?? []),
+    );
     if (index !== null) revealed.push(index);
     return index !== null;
   };

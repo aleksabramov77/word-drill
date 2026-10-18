@@ -29,7 +29,11 @@ function setup() {
     wordId: number,
     stage: "type" | "hint" | "choice" | "show",
     input: string,
-    extra: { elapsedMs?: number; action?: "reveal" | "choices" } = {},
+    extra: {
+      elapsedMs?: number;
+      action?: "reveal" | "choices";
+      cells?: string[];
+    } = {},
   ) => {
     const result = answerStep(
       ctx.db,
@@ -142,6 +146,36 @@ describe("тренировка", () => {
     const solved = step(word.id, "hint", "frustration");
     expect(solved.next).toBe("done");
     expect(solved.outcome?.grade).toBe(Rating.Hard);
+  });
+
+  it("верно вписанные в шаблон буквы не открываются — открывается другая свободная", () => {
+    const { add, step } = setup();
+    const word = add("кровь", ["blood"]);
+    step(word.id, "type", "");
+    step(word.id, "hint", "", { action: "reveal" }); // шаблон
+    // Вписаны «b» и «d» на свои места: подсказка открывает букву между ними.
+    for (let k = 0; k < 10; k++) {
+      const hinted = step(word.id, "hint", "", {
+        action: "reveal",
+        cells: ["b", "", "", "", "d"],
+      });
+      // Неизвестной осталась одна — подсказок больше нет, дальше варианты.
+      if (hinted.next !== "hint") break;
+      expect(hinted.mask?.[0]).toBeNull();
+      expect(hinted.mask?.[4]).toBeNull();
+    }
+  });
+
+  it("неверная попытка тоже не открывает верно вписанную букву", () => {
+    const { add, step } = setup();
+    const word = add("кровь", ["blood"]);
+    step(word.id, "type", "");
+    step(word.id, "hint", "", { action: "reveal" });
+    const wrong = step(word.id, "hint", "bxxx", {
+      cells: ["b", "x", "x", "x", ""],
+    });
+    expect(wrong).toMatchObject({ next: "hint", revealed: 1 });
+    expect(wrong.mask?.[0]).toBeNull();
   });
 
   it("«Не помню» — Again, даже если потом вспомнил по одной букве", () => {

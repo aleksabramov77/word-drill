@@ -77,6 +77,8 @@ export interface StepInput {
   elapsedMs?: number;
   /** На шаге подсказок: открыть ещё букву или перейти к вариантам. */
   action?: "reveal" | "choices";
+  /** Что вписано в клетки шаблона (по индексам ответа). */
+  cells?: string[];
 }
 
 export interface StepResult {
