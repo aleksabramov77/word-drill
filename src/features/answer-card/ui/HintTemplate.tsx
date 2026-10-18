@@ -33,10 +33,14 @@ const ONE_LINE = 16;
 export function HintTemplate({
   mask,
   onSubmit,
+  onCellsChange,
   disabled,
 }: {
   mask: Mask;
-  onSubmit: (value: string) => void;
+  /** value — ответ из шаблона, cells — что вписано в каждую клетку (по индексам ответа). */
+  onSubmit: (value: string, cells: string[]) => void;
+  /** Вписанное — чтобы «Ещё буква» не открывала уже верно вписанные буквы. */
+  onCellsChange: (cells: string[]) => void;
   disabled: boolean;
 }) {
   // Введённое сохраняется между попытками: открытая буква просто встаёт поверх.
@@ -47,6 +51,8 @@ export function HintTemplate({
     cell?.focus();
     cell?.select();
   };
+
+  useEffect(() => onCellsChange(values), [values, onCellsChange]);
 
   // Новая подсказка — курсор в первую пустую клетку.
   // biome-ignore lint/correctness/useExhaustiveDependencies: только при смене шаблона
@@ -72,7 +78,7 @@ export function HintTemplate({
   const filled = mask.some((ch, i) => ch === null && values[i]);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (filled) onSubmit(templateAnswer(mask, values));
+    if (filled) onSubmit(templateAnswer(mask, values), values);
   };
 
   const change = (i: number, raw: string) => {

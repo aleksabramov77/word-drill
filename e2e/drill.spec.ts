@@ -46,22 +46,26 @@ test("лестница: ввод → подсказки по буквам → в
   await expect(cells).toHaveCount(5);
   await expect(page.getByText("Подсказок: 0.")).toBeVisible();
 
-  // «Ещё буква» — первая буква, красная, в неё не ввести.
+  // Верно вписанную «b» подсказка не трогает — открывает другую букву, красную, в неё не ввести.
+  await page.getByLabel("Буква 1").click();
+  await page.keyboard.type("b");
   await page.getByRole("button", { name: "Ещё буква" }).click();
-  await expect(mask.locator("[data-revealed]")).toHaveText("b");
-  await expect(cells).toHaveCount(4);
   await expect(page.getByText("Подсказок: 1.")).toBeVisible();
+  await expect(page.getByLabel("Буква 1")).toHaveValue("b");
+  await expect(mask.locator("[data-revealed]")).toHaveCount(1);
+  await expect(cells).toHaveCount(4);
 
-  // Касание любой клетки ставит туда курсор, дальше курсор сам идёт вправо.
-  await page.getByLabel("Буква 3").click();
+  // Касание любой клетки ставит туда курсор, дальше курсор сам идёт вправо (открытую букву перескакивает).
+  await cells.nth(1).click();
   await page.keyboard.type("xx");
-  await expect(page.getByLabel("Буква 3")).toHaveValue("x");
-  await expect(page.getByLabel("Буква 4")).toHaveValue("x");
-  await expect(page.getByLabel("Буква 5")).toBeFocused();
-  // Неверная попытка открывает ещё букву.
+  await expect(cells.nth(1)).toHaveValue("x");
+  await expect(cells.nth(2)).toHaveValue("x");
+  await expect(cells.nth(3)).toBeFocused();
+  // Неверная попытка открывает ещё букву — и снова не на месте верной «b».
   await page.getByRole("button", { name: "Проверить" }).click();
   await expect(page.getByText("Не то — открыл ещё одну букву:")).toBeVisible();
   await expect(page.getByText("Подсказок: 2.")).toBeVisible();
+  await expect(page.getByLabel("Буква 1")).toHaveValue("b");
 
   // «Варианты» → выбор из 4, выбираем неправильный.
   await page.getByRole("button", { name: "Варианты" }).click();

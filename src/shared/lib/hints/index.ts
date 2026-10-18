@@ -1,1 +1,6 @@
-export { hintLetters, maskAnswer, nextHintIndex } from "./hints.ts";
+export {
+  hintLetters,
+  knownLetters,
+  maskAnswer,
+  nextHintIndex,
+} from "./hints.ts";

@@ -28,6 +28,8 @@ export interface StepRequest {
   input: string;
   elapsedMs?: number;
   action?: HintAction;
+  /** Что вписано в клетки шаблона (по индексам ответа). */
+  cells?: string[];
 }
 
 export function useAnswerStep() {

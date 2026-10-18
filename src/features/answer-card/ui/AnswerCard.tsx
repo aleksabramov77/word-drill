@@ -1,6 +1,7 @@
 import { Lightbulb, ListChecks, RectangleEllipsis } from "lucide-react";
 import {
   type FormEvent,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -192,6 +193,11 @@ export function AnswerCard({
     send(
       stage === "type" ? { input, elapsedMs: Date.now() - shownAt } : { input },
     );
+  /** Что вписано в шаблон: верные буквы «Ещё буква» и неверная попытка не открывают. */
+  const cells = useRef<string[]>([]);
+  const onCellsChange = useCallback((values: string[]) => {
+    cells.current = values;
+  }, []);
 
   return (
     <Card>
@@ -263,7 +269,8 @@ export function AnswerCard({
               <>
                 <HintTemplate
                   mask={mask}
-                  onSubmit={answer}
+                  onSubmit={(input, typed) => send({ input, cells: typed })}
+                  onCellsChange={onCellsChange}
                   disabled={step.isPending}
                 />
                 <p className="text-muted-foreground text-sm">
@@ -277,7 +284,13 @@ export function AnswerCard({
                 variant="outline"
                 size="lg"
                 disabled={step.isPending}
-                onClick={() => send({ input: "", action: "reveal" })}
+                onClick={() =>
+                  send({
+                    input: "",
+                    action: "reveal",
+                    ...(hintLevel === 2 ? { cells: cells.current } : {}),
+                  })
+                }
               >
                 {hintLevel === 1 ? <RectangleEllipsis /> : <Lightbulb />}
                 {hintLevel === 1 ? "Шаблон" : "Ещё буква"}

@@ -71,6 +71,8 @@ const stepSchema = z.object({
   input: z.string().max(200),
   elapsedMs: z.number().int().min(0).max(3_600_000).optional(),
   action: z.enum(["reveal", "choices"]).optional(),
+  /** Что вписано в клетки шаблона (по индексам ответа) — верные буквы подсказка не трогает. */
+  cells: z.array(z.string().max(4)).max(200).optional(),
 });
 
 async function body(req: { json: () => Promise<unknown> }): Promise<unknown> {

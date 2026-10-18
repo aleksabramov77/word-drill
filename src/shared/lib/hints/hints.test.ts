@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { hintLetters, maskAnswer, nextHintIndex } from "./index.ts";
+import {
+  hintLetters,
+  knownLetters,
+  maskAnswer,
+  nextHintIndex,
+} from "./index.ts";
 
 describe("подсказки по буквам", () => {
   it("считает только буквы", () => {
@@ -23,6 +28,16 @@ describe("подсказки по буквам", () => {
     }
     expect(order).toEqual([0, 2, 6, 9]);
     expect(nextHintIndex(answer, order, () => 0)).toBe(3);
+  });
+
+  it("верно вписанные буквы не открывает — открывает другую свободную", () => {
+    // b l o o d: вписаны «b» и «o» на своих местах, «x» — мимо.
+    const known = knownLetters("blood", ["B", "x", "o", "", ""]);
+    expect(known).toEqual([0, 2]);
+    // Первая буква слова уже известна — следующая открывается среди неизвестных.
+    expect(nextHintIndex("blood", [], () => 0, known)).toBe(1);
+    // Неизвестной осталась одна — её не открываем.
+    expect(nextHintIndex("blood", [1], () => 0, [0, 2, 3])).toBeNull();
   });
 
   it("последнюю скрытую букву не открывает", () => {
