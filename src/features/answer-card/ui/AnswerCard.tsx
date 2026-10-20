@@ -1,4 +1,4 @@
-import { Lightbulb, ListChecks, RectangleEllipsis } from "lucide-react";
+import { Copy, Lightbulb, ListChecks, RectangleEllipsis } from "lucide-react";
 import {
   type FormEvent,
   useCallback,
@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { toast } from "sonner";
 import { WordStatusBadge } from "@/entities/word";
 import { untilText } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
@@ -80,11 +81,27 @@ function TextAnswer({
   );
 }
 
+/** Скопировать карточку целиком — например, чтобы спросить о слове нейросеть. */
+function copyCard(card: DrillCard, expected: string) {
+  const text = [
+    `${card.prompt} — ${expected}`,
+    ...(card.alsoPrompts.length
+      ? [`Другие переводы: ${card.alsoPrompts.join(", ")}`]
+      : []),
+  ].join("\n");
+  navigator.clipboard.writeText(text).then(
+    () => toast.success("Скопировано"),
+    () => toast.error("Не получилось скопировать"),
+  );
+}
+
 function Outcome({
+  card,
   result,
   via,
   onNext,
 }: {
+  card: DrillCard;
   result: StepResult;
   via: "type" | "hint" | "other";
   onNext: () => void;
@@ -110,7 +127,17 @@ function Outcome({
       >
         {title}
       </p>
-      <p className="font-semibold text-2xl">{result.expected}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-2xl">{result.expected}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => copyCard(card, result.expected)}
+        >
+          <Copy />
+          Скопировать
+        </Button>
+      </div>
       {result.outcome && (
         <p className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
           <WordStatusBadge status={result.outcome.status} />
@@ -294,7 +321,7 @@ export function AnswerCard({
         )}
 
         {done ? (
-          <Outcome result={done} via={deepest} onNext={onNext} />
+          <Outcome card={card} result={done} via={deepest} onNext={onNext} />
         ) : stage === "type" && !card.template ? (
           <TextAnswer
             placeholder="Напиши по-английски"

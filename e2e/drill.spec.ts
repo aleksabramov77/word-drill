@@ -179,7 +179,11 @@ test("лестница: шаблон для новых слов, обычное 
   await expect(row("кровь — blood").getByText(/знание \d+%/)).toBeVisible();
 });
 
-test("новое слово, верно в шаблоне — «Верно!»", async ({ page }) => {
+test("новое слово, верно в шаблоне — «Верно!»; без выделения букв; копирование карточки", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/words");
   await page.getByRole("tab", { name: "Вручную" }).click();
   await addManual(page, "присматривать", "to look after");
@@ -194,6 +198,28 @@ test("новое слово, верно в шаблоне — «Верно!»", 
   );
   await page.getByLabel("Буква 1", { exact: true }).click();
   await page.keyboard.type("look after");
+  // Последняя буква не выделяется: курсор после неё, выделения нет.
+  const last = page.getByLabel("Буква 10", { exact: true });
+  await expect(last).toBeFocused();
+  expect(
+    await last.evaluate((el: HTMLInputElement) => [
+      el.selectionStart,
+      el.selectionEnd,
+    ]),
+  ).toEqual([1, 1]);
+  // Двойной тап по букве тоже ничего не выделяет.
+  await page.getByLabel("Буква 1", { exact: true }).dblclick();
+  expect(
+    await page
+      .getByLabel("Буква 1", { exact: true })
+      .evaluate((el: HTMLInputElement) => el.selectionEnd - el.selectionStart),
+  ).toBe(0);
   await page.keyboard.press("Enter");
   await expect(page.getByText("Верно!", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Скопировать" }).click();
+  await expect(page.getByText("Скопировано")).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
+    /^присматривать — to look after/,
+  );
 });

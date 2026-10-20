@@ -20,6 +20,15 @@ import {
   typeInto,
 } from "../lib/template.ts";
 
+/** Курсор в конец клетки, без выделения буквы. */
+function caretToEnd(cell: HTMLInputElement | null | undefined) {
+  if (!cell) return;
+  const end = cell.value.length;
+  if (cell.selectionStart !== end || cell.selectionEnd !== end) {
+    cell.setSelectionRange(end, end);
+  }
+}
+
 /** Промежуток между клетками и между словами, px. */
 const GAP = 3;
 const WORD_GAP = 16;
@@ -56,7 +65,7 @@ export function HintTemplate({
   const focus = (i: number) => {
     const cell = cells.current[i];
     cell?.focus();
-    cell?.select();
+    caretToEnd(cell);
   };
 
   useEffect(() => onCellsChange(values), [values, onCellsChange]);
@@ -94,7 +103,7 @@ export function HintTemplate({
       unmark([i]);
       return;
     }
-    // Обычно буква в клетке выделена и заменяется; если нет — берём только новое.
+    // Курсор всегда после буквы клетки: новая буква приходит следом за старой — берём только новую.
     const old = values[i] ?? "";
     const text =
       old && raw.length > 1 && raw.startsWith(old)
@@ -130,7 +139,7 @@ export function HintTemplate({
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
       <div
-        className="flex flex-wrap gap-y-3 font-mono"
+        className="flex select-none flex-wrap gap-y-3 font-mono"
         style={{ containerType: "inline-size", columnGap: `${WORD_GAP}px` }}
         data-testid="hint-mask"
       >
@@ -151,10 +160,12 @@ export function HintTemplate({
                     value={values[i] ?? ""}
                     onChange={(e) => change(i, e.target.value)}
                     onKeyDown={(e) => keyDown(i, e)}
-                    onFocus={(e) => e.target.select()}
+                    onFocus={(e) => caretToEnd(e.currentTarget)}
+                    // Выделение в клетках бессмысленно (одна буква) и мешает — сразу схлопываем его.
+                    onSelect={(e) => caretToEnd(e.currentTarget)}
                     style={cellStyle}
                     className={cn(
-                      "h-11 rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center outline-none focus:border-primary focus:bg-primary/10",
+                      "h-11 select-none rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center caret-transparent outline-none [-webkit-touch-callout:none] selection:bg-transparent focus:border-primary focus:bg-primary/10",
                       marked.has(i) &&
                         "border-destructive text-destructive focus:border-destructive",
                     )}
