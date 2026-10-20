@@ -1,9 +1,13 @@
-import { HARD_HINT_SHARE, HOT_STEPS } from "@/shared/lib/srs";
+import { HARD_HINT_SHARE, HOT_STEPS, TEMPLATE_UNTIL } from "@/shared/lib/srs";
 import { Article, Bullets, Ext, H2, Note } from "./parts.tsx";
 
 const GRADES: { answer: string; grade: string }[] = [
   { answer: "Верно и быстро", grade: "Легко" },
   { answer: "Верно", grade: "Хорошо" },
+  {
+    answer: `Верно в шаблоне (знание ниже ${Math.round(TEMPLATE_UNTIL * 100)}%), даже быстро`,
+    grade: "Хорошо",
+  },
   { answer: "Верно, но медленно или с опечаткой", grade: "Трудно" },
   {
     answer: `С подсказками, открыто до ${Math.round(HARD_HINT_SHARE * 100)}% букв`,

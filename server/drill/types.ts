@@ -58,6 +58,10 @@ export interface DrillCard {
   alsoPrompts: string[];
   /** Число букв ответа. */
   letters: number;
+  /** Знание ниже порога — ответ вводится сразу в шаблон. */
+  template: boolean;
+  /** Пустой шаблон (null — клетка), если template. */
+  mask?: (string | null)[];
   isNew: boolean;
   hot: boolean;
 }

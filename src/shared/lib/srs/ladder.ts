@@ -21,8 +21,11 @@ export function deeperStage(a: Stage, b: Stage): Stage {
 }
 
 export type StageResult =
-  /** forgot — нажата «Не помню» (пустой ввод): показ оценивается низшим баллом, что бы ни было дальше. */
-  | { stage: "type"; verdict: Verdict; forgot?: boolean }
+  /**
+   * forgot — нажата «Не помню» (пустой ввод): показ оценивается низшим баллом, что бы ни было дальше.
+   * template — слово вводилось сразу в шаблон (знание ниже TEMPLATE_UNTIL): длина подсказана, выше «Хорошо» не ставим.
+   */
+  | { stage: "type"; verdict: Verdict; forgot?: boolean; template?: boolean }
   /** exhausted — подсказок больше не дать или открыто больше половины, а ответа нет; giveUp — «Варианты». */
   | { stage: "hint"; correct: boolean; exhausted: boolean; giveUp?: boolean }
   | { stage: "choice" | "show"; correct: boolean };
@@ -52,6 +55,9 @@ export type ReviewGrade =
 /** До этой доли открытых букв ответ с подсказкой — Hard, больше — Again. */
 export const HARD_HINT_SHARE = 0.25;
 
+/** Пока «знание» слова ниже этого, слово вводится сразу в шаблон (видно число букв и слов). */
+export const TEMPLATE_UNTIL = 0.5;
+
 export interface AttemptSummary {
   /** Результат ввода — первого шага. */
   first: StageResult;
@@ -65,6 +71,7 @@ export interface AttemptSummary {
 /**
  * Итог показа → оценка FSRS:
  * - ввод: верно и быстро — Easy, верно — Good, медленно или с опечаткой — Hard;
+ *   в шаблоне (слово ещё не выучено) — не выше Good: длина уже подсказана;
  * - подсказки: только заготовка или открыто ≤ 25% букв — Hard, больше — Again;
  * - выбор или показ — Again;
  * - «Не помню» — Again, даже если потом вспомнил по подсказкам.
@@ -83,7 +90,7 @@ export function gradeAttempt(
   if (first.stage !== "type") return Rating.Again;
   switch (first.verdict) {
     case "correct":
-      if (speed === "fast") return Rating.Easy;
+      if (speed === "fast") return first.template ? Rating.Good : Rating.Easy;
       return speed === "slow" ? Rating.Hard : Rating.Good;
     case "typo":
       return Rating.Hard;

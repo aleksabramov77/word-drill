@@ -179,6 +179,22 @@ export function AnswerCard({
                   : "Не то — открыл ещё одну букву:",
             );
           }
+          // Ввод сразу в шаблон и мимо: шаблон тот же, вписанное остаётся — исправить или взять подсказку.
+          if (
+            stage === "type" &&
+            card.template &&
+            result.next === "hint" &&
+            request.input.trim() !== "" &&
+            result.verdict !== "synonym"
+          ) {
+            setHintNote(
+              result.verdict === "other-word"
+                ? "Это перевод другого слова. Исправь буквы или возьми подсказку:"
+                : result.verdict === "partial"
+                  ? "Близко! Исправь буквы или возьми подсказку:"
+                  : "Не то. Исправь буквы или возьми подсказку:",
+            );
+          }
           if (stage === "show" && !result.correct) setShowTries((n) => n + 1);
           if (result.next === "choice" || result.next === "show") {
             setDeepest("other");
@@ -198,6 +214,39 @@ export function AnswerCard({
   const onCellsChange = useCallback((values: string[]) => {
     cells.current = values;
   }, []);
+
+  const hintIntro =
+    last?.verdict === "synonym"
+      ? synonymIntro(lastInput)
+      : (hintNote ?? (last?.verdict ? HINT_INTRO[last.verdict] : "Подсказка:"));
+  const hintButtons = (
+    <div className="grid grid-cols-2 gap-2">
+      <Button
+        variant="outline"
+        size="lg"
+        disabled={step.isPending}
+        onClick={() =>
+          send({
+            input: "",
+            action: "reveal",
+            ...(hintLevel === 2 ? { cells: cells.current } : {}),
+          })
+        }
+      >
+        {hintLevel === 1 ? <RectangleEllipsis /> : <Lightbulb />}
+        {hintLevel === 1 ? "Шаблон" : "Ещё буква"}
+      </Button>
+      <Button
+        variant="outline"
+        size="lg"
+        disabled={step.isPending}
+        onClick={() => send({ input: "", action: "choices" })}
+      >
+        <ListChecks />
+        Варианты
+      </Button>
+    </div>
+  );
 
   return (
     <Card>
@@ -237,74 +286,52 @@ export function AnswerCard({
 
         {done ? (
           <Outcome result={done} via={deepest} onNext={onNext} />
-        ) : stage === "type" ? (
+        ) : stage === "type" && !card.template ? (
           <TextAnswer
             placeholder="Напиши по-английски"
             submitLabel="Проверить"
             onSubmit={answer}
             disabled={step.isPending}
           />
-        ) : stage === "hint" ? (
+        ) : stage === "hint" && hintLevel === 1 ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-base">{hintIntro}</p>
+            <p className="font-semibold text-xl" data-testid="length-hint">
+              {lengthHint(mask)}
+            </p>
+            <TextAnswer
+              key={`hint-${hintTries}`}
+              placeholder="Напиши по-английски"
+              submitLabel="Проверить"
+              onSubmit={answer}
+              disabled={step.isPending}
+            />
+            {hintButtons}
+          </div>
+        ) : stage === "type" || stage === "hint" ? (
+          // Один и тот же шаблон на вводе и на подсказках: вписанные буквы не теряются после ошибки.
           <div className="flex flex-col gap-3">
             <p className="text-base">
-              {last?.verdict === "synonym"
-                ? synonymIntro(lastInput)
-                : (hintNote ??
-                  (last?.verdict ? HINT_INTRO[last.verdict] : "Подсказка:"))}
+              {stage === "type" ? "Впиши слово по буквам:" : hintIntro}
             </p>
-            {hintLevel === 1 ? (
+            <HintTemplate
+              key={card.wordId}
+              mask={stage === "type" ? (card.mask ?? []) : mask}
+              onSubmit={(input, typed) =>
+                stage === "type" ? answer(input) : send({ input, cells: typed })
+              }
+              onCellsChange={onCellsChange}
+              disabled={step.isPending}
+            />
+            {stage === "hint" && (
               <>
-                <p className="font-semibold text-xl" data-testid="length-hint">
-                  {lengthHint(mask)}
-                </p>
-                <TextAnswer
-                  key={`hint-${hintTries}`}
-                  placeholder="Напиши по-английски"
-                  submitLabel="Проверить"
-                  onSubmit={answer}
-                  disabled={step.isPending}
-                />
-              </>
-            ) : (
-              <>
-                <HintTemplate
-                  mask={mask}
-                  onSubmit={(input, typed) => send({ input, cells: typed })}
-                  onCellsChange={onCellsChange}
-                  disabled={step.isPending}
-                />
                 <p className="text-muted-foreground text-sm">
                   Подсказок: {revealed}. Каждая открытая буква — слово вернётся
                   раньше.
                 </p>
+                {hintButtons}
               </>
             )}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="lg"
-                disabled={step.isPending}
-                onClick={() =>
-                  send({
-                    input: "",
-                    action: "reveal",
-                    ...(hintLevel === 2 ? { cells: cells.current } : {}),
-                  })
-                }
-              >
-                {hintLevel === 1 ? <RectangleEllipsis /> : <Lightbulb />}
-                {hintLevel === 1 ? "Шаблон" : "Ещё буква"}
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                disabled={step.isPending}
-                onClick={() => send({ input: "", action: "choices" })}
-              >
-                <ListChecks />
-                Варианты
-              </Button>
-            </div>
           </div>
         ) : stage === "choice" ? (
           <div className="flex flex-col gap-3">

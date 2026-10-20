@@ -121,6 +121,18 @@ describe("лестница", () => {
     expect(gradeAttempt(typed("typo"), "fast")).toBe(Rating.Hard);
   });
 
+  it("оценка FSRS: ответ сразу в шаблоне — не выше «Хорошо»", () => {
+    const inTemplate = {
+      first: { stage: "type", verdict: "correct", template: true } as const,
+      deepest: "type" as const,
+      revealed: 0,
+      letters: 5,
+    };
+    expect(gradeAttempt(inTemplate, "fast")).toBe(Rating.Good);
+    expect(gradeAttempt(inTemplate, "normal")).toBe(Rating.Good);
+    expect(gradeAttempt(inTemplate, "slow")).toBe(Rating.Hard);
+  });
+
   it("«Не помню» — Again, даже если вспомнил по подсказке", () => {
     expect(
       gradeAttempt(

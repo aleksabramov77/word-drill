@@ -8,6 +8,11 @@ function isLetter(ch: string | undefined): boolean {
   return ch !== undefined && LETTER.test(ch);
 }
 
+/** Ответ для шаблона: без артикля и «to» в начале — проверка ответа их и так не требует. */
+export function templateBase(answer: string): string {
+  return answer.replace(/^(a|an|the)\s+/i, "").replace(/^to\s+/i, "");
+}
+
 /** Сколько букв в ответе (пробелы, дефисы, апострофы не считаются). */
 export function hintLetters(answer: string): number {
   return [...answer].filter(isLetter).length;

@@ -23,7 +23,9 @@ test("главная форма крупно, остальные мелко; д�
   await expect(others).toContainText("намного");
   await expect(others).toContainText("далеко");
 
-  await page.getByLabel("Ответ по-английски").fill("a lot");
+  // Новое слово — сразу шаблон «by far» (2 + 3); «a lot» ложится в клетки как «a» + «lot».
+  await page.getByLabel("Буква 1", { exact: true }).click();
+  await page.keyboard.type("a lot");
   await page.getByRole("button", { name: "Проверить" }).click();
   await expect(
     page.getByText("«a lot» — тоже верно! Но здесь загадано другое слово:"),
@@ -33,12 +35,12 @@ test("главная форма крупно, остальные мелко; д�
   // Шаблон фразы — два слова; пробел переводит курсор к следующему слову.
   const mask = page.getByTestId("hint-mask");
   await expect(mask.getByRole("textbox")).toHaveCount(5);
-  await page.getByLabel("Буква 1").click();
+  await page.getByLabel("Буква 1", { exact: true }).click();
   await page.keyboard.type("b f");
-  await expect(page.getByLabel("Буква 4")).toHaveValue("f");
-  await page.getByLabel("Буква 2").click();
+  await expect(page.getByLabel("Буква 4", { exact: true })).toHaveValue("f");
+  await page.getByLabel("Буква 2", { exact: true }).click();
   await page.keyboard.type("y");
-  await page.getByLabel("Буква 5").click();
+  await page.getByLabel("Буква 5", { exact: true }).click();
   await page.keyboard.type("ar");
   await page.getByRole("button", { name: "Проверить" }).click();
   await expect(page.getByText("Верно, с подсказкой")).toBeVisible();

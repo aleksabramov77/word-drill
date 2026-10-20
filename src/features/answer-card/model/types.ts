@@ -19,6 +19,10 @@ export const drillCardSchema = z.object({
   /** Другие русские формы того же слова (по словарю) — мелко под главной, в случайном порядке. */
   alsoPrompts: z.array(z.string()).default([]),
   letters: z.number(),
+  /** Слово ещё не выучено — ответ вводится сразу в шаблон. */
+  template: z.boolean().default(false),
+  /** Пустой шаблон (null — клетка), если template. */
+  mask: z.array(z.string().nullable()).optional(),
   isNew: z.boolean(),
   hot: z.boolean(),
 });
