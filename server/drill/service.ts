@@ -15,6 +15,7 @@ import {
   knownLetters,
   maskAnswer,
   nextHintIndex,
+  templateBase,
 } from "../../src/shared/lib/hints/index.ts";
 import {
   type Card,
@@ -32,6 +33,7 @@ import {
   type Speed,
   type StageResult,
   State,
+  TEMPLATE_UNTIL,
   wordStatus,
 } from "../../src/shared/lib/srs/index.ts";
 import type { Db } from "../db/client.ts";
@@ -258,6 +260,8 @@ export function drillQueue(
       ? undefined
       : rows.find(({ row }) => row.id === prefer);
   const pick = preferred ?? due[0] ?? (includeNew ? fresh[0] : undefined);
+  const base = templateBase(pick?.row.answers[0] ?? "");
+  const template = pick ? startsInTemplate(pick.card) : false;
   return {
     card: pick
       ? {
@@ -272,7 +276,9 @@ export function drillQueue(
                 ),
               )
             : [],
-          letters: letterCount(pick.row.answers[0] ?? ""),
+          letters: letterCount(base),
+          template,
+          ...(template ? { mask: maskAnswer(base, []) } : {}),
           isNew: pick.card.state === State.New,
           hot: isHot(pick.card),
         }
@@ -281,6 +287,11 @@ export function drillQueue(
     newCount: fresh.length,
     nextDue: later.length ? new Date(Math.min(...later)).toISOString() : null,
   };
+}
+
+/** Слово ещё не выучено — ответ вводится сразу в шаблон. */
+function startsInTemplate(card: Card): boolean {
+  return knowledge(card) < TEMPLATE_UNTIL;
 }
 
 function choiceOptions(
@@ -317,7 +328,7 @@ function finish(
       first: attempt.first,
       deepest: attempt.deepest,
       revealed: attempt.revealed.length,
-      letters: hintLetters(row.answers[0] ?? ""),
+      letters: hintLetters(templateBase(row.answers[0] ?? "")),
     },
     attempt.speed,
   );
@@ -379,6 +390,7 @@ function typeStep(
     verdict: checked.verdict,
     // Пустой ответ — кнопка «Не помню».
     ...(normalize(step.input) === "" ? { forgot: true } : {}),
+    ...(startsInTemplate(fromStoredCard(row.card)) ? { template: true } : {}),
   };
   let speed: Speed = "normal";
   const elapsedMs = step.elapsedMs ?? null;
@@ -424,7 +436,7 @@ function hintStep(
   hintLevel: HintLevel;
   checked?: CheckResult;
 } {
-  const answer = row.answers[0] ?? "";
+  const answer = templateBase(row.answers[0] ?? "");
   const revealed = [...attempt.revealed];
   let hintLevel: HintLevel = attempt.hintLevel ?? 2;
   /** Подсказать больше: сначала шаблон, потом буква. false — подсказывать больше нечего. */
@@ -507,8 +519,12 @@ export function answerStep(
       row,
       step,
     ));
-    // Другой верный перевод — сразу шаблон: смысл понятен, нужно найти именно это слово.
-    attempt.hintLevel = checked.verdict === "synonym" ? 2 : 1;
+    // Шаблон сразу, если слово вводили в шаблон или ввели другой верный перевод (смысл понятен — найти именно это слово).
+    attempt.hintLevel =
+      result.stage === "type" &&
+      (result.template || checked.verdict === "synonym")
+        ? 2
+        : 1;
   } else {
     // Шаги ниже ввода продолжают начатый показ; без него (страница открыта заново) — считаем, что ввод не удался.
     const current: Attempt = row.attempt ?? {
@@ -564,7 +580,7 @@ export function answerStep(
   if (next === "hint") {
     return {
       ...base,
-      mask: maskAnswer(answer, attempt.revealed),
+      mask: maskAnswer(templateBase(answer), attempt.revealed),
       revealed: attempt.revealed.length,
       hintLevel: attempt.hintLevel ?? 2,
     };

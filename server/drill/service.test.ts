@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { Rating } from "../../src/shared/lib/srs/index.ts";
+import { Rating, State } from "../../src/shared/lib/srs/index.ts";
+import { words } from "../db/schema.ts";
 import { fixtureDictionary } from "../dictionary/fixture.ts";
 import { createTestApp } from "../testing.ts";
 import {
@@ -46,7 +48,29 @@ function setup() {
     if (!result) throw new Error("no word");
     return result;
   };
-  return { ...ctx, add, step };
+  /** Слово со знанием ~70% — вводится в обычное поле, подсказки с числа букв. */
+  const addKnown = (prompt: string, answers: string[]) => {
+    const word = add(prompt, answers);
+    const now = ctx.clock.now();
+    const row = ctx.db.select().from(words).where(eq(words.id, word.id)).get();
+    if (!row) throw new Error("no word");
+    const card = {
+      ...row.card,
+      state: State.Review,
+      stability: 15,
+      difficulty: 5,
+      reps: 5,
+      due: now.toISOString(),
+      last_review: new Date(now.getTime() - 15 * 86_400_000).toISOString(),
+    };
+    ctx.db
+      .update(words)
+      .set({ card, due: now })
+      .where(eq(words.id, word.id))
+      .run();
+    return word;
+  };
+  return { ...ctx, add, addKnown, step };
 }
 
 describe("слова", () => {
@@ -123,8 +147,8 @@ describe("тренировка", () => {
   });
 
   it("неверный ввод → число букв → шаблон → буква; одна буква из 11 и верный ответ — Hard", () => {
-    const { add, step } = setup();
-    const word = add("разочарование", ["frustration"]);
+    const { addKnown, step } = setup();
+    const word = addKnown("разочарование", ["frustration"]);
 
     const typed = step(word.id, "type", "frustr");
     expect(typed).toMatchObject({
@@ -149,8 +173,8 @@ describe("тренировка", () => {
   });
 
   it("верно вписанные в шаблон буквы не открываются — открывается другая свободная", () => {
-    const { add, step } = setup();
-    const word = add("кровь", ["blood"]);
+    const { addKnown, step } = setup();
+    const word = addKnown("кровь", ["blood"]);
     step(word.id, "type", "");
     step(word.id, "hint", "", { action: "reveal" }); // шаблон
     // Вписаны «b» и «d» на свои места: подсказка открывает букву между ними.
@@ -167,8 +191,8 @@ describe("тренировка", () => {
   });
 
   it("неверная попытка тоже не открывает верно вписанную букву", () => {
-    const { add, step } = setup();
-    const word = add("кровь", ["blood"]);
+    const { addKnown, step } = setup();
+    const word = addKnown("кровь", ["blood"]);
     step(word.id, "type", "");
     step(word.id, "hint", "", { action: "reveal" });
     const wrong = step(word.id, "hint", "bxxx", {
@@ -188,8 +212,8 @@ describe("тренировка", () => {
   });
 
   it("каждая неверная попытка подсказывает больше: шаблон, потом буквы; больше 25% букв — Again", () => {
-    const { add, step } = setup();
-    const word = add("разочарование", ["frustration"]);
+    const { addKnown, step } = setup();
+    const word = addKnown("разочарование", ["frustration"]);
     step(word.id, "type", "xyz");
     expect(step(word.id, "hint", "aaa")).toMatchObject({
       hintLevel: 2,
@@ -204,8 +228,8 @@ describe("тренировка", () => {
   });
 
   it("открыто больше половины и снова мимо — выбор из вариантов", () => {
-    const { add, step } = setup();
-    const word = add("кровь", ["blood"]);
+    const { addKnown, step } = setup();
+    const word = addKnown("кровь", ["blood"]);
     step(word.id, "type", "xyz");
     expect(step(word.id, "hint", "aaa")).toMatchObject({
       next: "hint",
@@ -291,6 +315,60 @@ describe("тренировка", () => {
     expect(
       drillQueue(db, userId, clock.now(), { includeNew: false }).card,
     ).toBeNull();
+  });
+});
+
+describe("шаблон сразу для невыученных слов", () => {
+  it("новое слово: карточка с пустым шаблоном; шаблон без «to» в начале", () => {
+    const { db, userId, clock, add } = setup();
+    add("присматривать", ["to look after"]);
+    const { card } = drillQueue(db, userId, clock.now());
+    expect(card).toMatchObject({ template: true, letters: 9 });
+    expect(card?.mask).toEqual([
+      null,
+      null,
+      null,
+      null,
+      " ",
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
+  });
+
+  it("выученное слово — обычное поле без шаблона", () => {
+    const { db, userId, clock, addKnown } = setup();
+    addKnown("кровь", ["blood"]);
+    const { card } = drillQueue(db, userId, clock.now());
+    expect(card?.template).toBe(false);
+    expect(card?.mask).toBeUndefined();
+  });
+
+  it("верно в шаблоне и быстро — «Хорошо», не «Легко»", () => {
+    const { add, step } = setup();
+    const word = add("кровь", ["blood"]);
+    // Набрать историю скорости, чтобы ответ считался быстрым.
+    for (let k = 0; k < 5; k++) {
+      const w = add(`слово${k}`, ["water"]);
+      step(w.id, "type", "water", { elapsedMs: 9000 });
+    }
+    const result = step(word.id, "type", "blood", { elapsedMs: 1600 });
+    expect(result.outcome?.grade).toBe(Rating.Good);
+  });
+
+  it("ошибка в шаблоне — дальше тот же шаблон без открытых букв; «look after» засчитывается для «to look after»", () => {
+    const { add, step } = setup();
+    const word = add("присматривать", ["to look after"]);
+    const wrong = step(word.id, "type", "look up");
+    expect(wrong).toMatchObject({ next: "hint", hintLevel: 2, revealed: 0 });
+    expect(wrong.mask).toHaveLength(10);
+    const hinted = step(word.id, "hint", "", { action: "reveal" });
+    expect(hinted.revealed).toBe(1);
+    expect(hinted.mask?.[0]).toBe("l");
+    const done = step(word.id, "hint", "look after");
+    expect(done.next).toBe("done");
   });
 });
 

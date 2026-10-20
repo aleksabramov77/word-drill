@@ -8,6 +8,7 @@ export {
   STAGE_DEPTH,
   type Stage,
   type StageResult,
+  TEMPLATE_UNTIL,
 } from "./ladder.ts";
 export {
   type Card,

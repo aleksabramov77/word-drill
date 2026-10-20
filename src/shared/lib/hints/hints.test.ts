@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as hintsModule from "./index.ts";
 import {
   hintLetters,
   knownLetters,
@@ -38,6 +39,15 @@ describe("подсказки по буквам", () => {
     expect(nextHintIndex("blood", [], () => 0, known)).toBe(1);
     // Неизвестной осталась одна — её не открываем.
     expect(nextHintIndex("blood", [1], () => 0, [0, 2, 3])).toBeNull();
+  });
+
+  it("шаблон — без артикля и «to» в начале", () => {
+    const { templateBase } = hintsModule;
+    expect(templateBase("to look after")).toBe("look after");
+    expect(templateBase("The boy")).toBe("boy");
+    expect(templateBase("an apple")).toBe("apple");
+    expect(templateBase("today")).toBe("today");
+    expect(templateBase("theory")).toBe("theory");
   });
 
   it("последнюю скрытую букву не открывает", () => {
