@@ -137,12 +137,29 @@ test("лестница: шаблон для новых слов, обычное 
   await page.getByLabel("Буква 1", { exact: true }).click();
   await page.keyboard.type("wxyzq");
   await page.keyboard.press("Enter");
+  // Шаблон заполнен целиком — обычная ошибка: неверные клетки подчёркнуты красным, буква не открыта.
   await expect(
-    page.getByText("Не то. Исправь буквы или возьми подсказку:"),
+    page.getByText(
+      "Ошибки подчёркнуты красным — исправь буквы или возьми подсказку:",
+    ),
   ).toBeVisible();
+  await expect(page.getByText("Подсказок: 0.")).toBeVisible();
   await expect(page.getByLabel("Буква 1", { exact: true })).toHaveValue("w");
-  await page.getByLabel("Буква 2", { exact: true }).click();
-  await page.keyboard.type("ater");
+  await expect(page.getByLabel("Буква 1", { exact: true })).not.toHaveAttribute(
+    "aria-invalid",
+  );
+  await expect(mask.locator("[aria-invalid]")).toHaveCount(4);
+  // «Ещё буква» открывает одну из ошибочных клеток (голубая), остальные остаются красными.
+  await page.getByRole("button", { name: "Ещё буква" }).click();
+  await expect(page.getByText("Подсказок: 1.")).toBeVisible();
+  await expect(mask.locator("[aria-invalid]")).toHaveCount(3);
+  // Исправить оставшиеся клетки (одна из них уже открыта подсказкой).
+  for (const [k, ch] of [..."ater"].entries()) {
+    const cell = page.getByLabel(`Буква ${k + 2}`, { exact: true });
+    if (await cell.count()) await cell.fill(ch);
+  }
+  // Исправленные клетки больше не красные.
+  await expect(mask.locator("[aria-invalid]")).toHaveCount(0);
   await page.keyboard.press("Enter");
   await expect(page.getByText("Верно, с подсказкой")).toBeVisible();
   await page.getByRole("button", { name: "Дальше" }).click();

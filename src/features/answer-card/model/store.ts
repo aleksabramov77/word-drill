@@ -15,6 +15,8 @@ interface AnswerState {
   revealed: number;
   /** Уровень подсказки: 1 — число букв, 2 — шаблон. */
   hintLevel: 1 | 2;
+  /** Клетки шаблона с неверными буквами после последней попытки. */
+  wrong: number[];
   options: string[];
   /** Показ закончен — ждём «Дальше». */
   done: StepResult | null;
@@ -30,6 +32,7 @@ export const useAnswerStore = create<AnswerState>((set) => ({
   mask: [],
   revealed: 0,
   hintLevel: 1,
+  wrong: [],
   options: [],
   done: null,
   start: (wordId, now = Date.now()) =>
@@ -41,6 +44,7 @@ export const useAnswerStore = create<AnswerState>((set) => ({
       mask: [],
       revealed: 0,
       hintLevel: 1,
+      wrong: [],
       options: [],
       done: null,
     }),
@@ -51,6 +55,11 @@ export const useAnswerStore = create<AnswerState>((set) => ({
       mask: result.mask ?? state.mask,
       revealed: result.revealed ?? state.revealed,
       hintLevel: result.hintLevel ?? state.hintLevel,
+      // Ответ «Ещё буква» (без вердикта) подсветку не сбрасывает — она держится до новой попытки.
+      wrong:
+        result.verdict === undefined && result.next === "hint"
+          ? state.wrong
+          : (result.wrong ?? []),
       options: result.options ?? state.options,
       done: result.next === "done" ? result : null,
     })),

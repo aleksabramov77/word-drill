@@ -24,6 +24,8 @@
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --success: oklch(0.627 0.17 149);
+  /* Буквы, открытые подсказкой (красный — у ошибок). */
+  --hint: oklch(0.588 0.158 241.966);
   --warning: oklch(0.75 0.16 70);
 }
 
@@ -48,6 +50,7 @@
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
     --success: oklch(0.72 0.17 149);
+    --hint: oklch(0.746 0.16 232.661);
     --warning: oklch(0.8 0.15 75);
   }
 }
@@ -76,6 +79,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-success: var(--success);
+  --color-hint: var(--hint);
   --color-warning: var(--warning);
 }
 

@@ -34,9 +34,12 @@ export function HintTemplate({
   mask,
   onSubmit,
   onCellsChange,
+  wrong,
   disabled,
 }: {
   mask: Mask;
+  /** Клетки с неверными буквами после попытки — подчёркнуты красным, пока их не исправишь. */
+  wrong: readonly number[];
   /** value — ответ из шаблона, cells — что вписано в каждую клетку (по индексам ответа). */
   onSubmit: (value: string, cells: string[]) => void;
   /** Вписанное — чтобы «Ещё буква» не открывала уже верно вписанные буквы. */
@@ -46,6 +49,10 @@ export function HintTemplate({
   // Введённое сохраняется между попытками: открытая буква просто встаёт поверх.
   const [values, setValues] = useState(() => mask.map(() => ""));
   const cells = useRef<(HTMLInputElement | null)[]>([]);
+  const [marked, setMarked] = useState<ReadonlySet<number>>(new Set());
+  useEffect(() => setMarked(new Set(wrong)), [wrong]);
+  const unmark = (indices: readonly number[]) =>
+    setMarked((m) => new Set([...m].filter((i) => !indices.includes(i))));
   const focus = (i: number) => {
     const cell = cells.current[i];
     cell?.focus();
@@ -84,6 +91,7 @@ export function HintTemplate({
   const change = (i: number, raw: string) => {
     if (raw === "") {
       setValues((v) => v.map((x, j) => (j === i ? "" : x)));
+      unmark([i]);
       return;
     }
     // Обычно буква в клетке выделена и заменяется; если нет — берём только новое.
@@ -94,6 +102,7 @@ export function HintTemplate({
         : raw;
     const typed = typeInto(mask, values, i, text);
     setValues(typed.values);
+    unmark(typed.values.flatMap((v, j) => (v !== values[j] ? [j] : [])));
     focus(typed.cursor);
   };
 
@@ -144,7 +153,12 @@ export function HintTemplate({
                     onKeyDown={(e) => keyDown(i, e)}
                     onFocus={(e) => e.target.select()}
                     style={cellStyle}
-                    className="h-11 rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center outline-none focus:border-primary focus:bg-primary/10"
+                    className={cn(
+                      "h-11 rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center outline-none focus:border-primary focus:bg-primary/10",
+                      marked.has(i) &&
+                        "border-destructive text-destructive focus:border-destructive",
+                    )}
+                    aria-invalid={marked.has(i) || undefined}
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="none"
@@ -162,7 +176,7 @@ export function HintTemplate({
                   className={cn(
                     "inline-flex h-11 items-center justify-center",
                     isRevealed(mask, i) &&
-                      "border-destructive border-b-2 font-semibold text-destructive",
+                      "border-hint border-b-2 font-semibold text-hint",
                   )}
                   data-revealed={isRevealed(mask, i) || undefined}
                 >
