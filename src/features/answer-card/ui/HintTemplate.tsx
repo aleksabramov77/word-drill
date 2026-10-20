@@ -3,18 +3,22 @@ import {
   type FormEvent,
   type KeyboardEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import { holdKeyboard } from "../lib/keyboard.ts";
 import {
+  cellsPerLine,
   firstEmptySlot,
   isRevealed,
   isSlot,
   type Mask,
   nextSlot,
   prevSlot,
+  splitWord,
   templateAnswer,
   templateWords,
   typeInto,
@@ -32,6 +36,8 @@ function caretToEnd(cell: HTMLInputElement | null | undefined) {
 /** Промежуток между клетками и между словами, px. */
 const GAP = 3;
 const WORD_GAP = 16;
+/** Самая узкая клетка, px (0.9rem). */
+const MIN_CELL = 14.4;
 /** Фраза до стольких клеток встаёт в одну строку; длиннее — слова переносятся, но каждое целиком. */
 const ONE_LINE = 16;
 
@@ -58,6 +64,12 @@ export function HintTemplate({
   // Введённое сохраняется между попытками: открытая буква просто встаёт поверх.
   const [values, setValues] = useState(() => mask.map(() => ""));
   const cells = useRef<(HTMLInputElement | null)[]>([]);
+  const form = useRef<HTMLFormElement>(null);
+  // Шаблон исчезает (ответ принят) — клавиатура остаётся открытой для следующего поля.
+  useLayoutEffect(() => {
+    const el = form.current;
+    return () => holdKeyboard(el);
+  }, []);
   const [marked, setMarked] = useState<ReadonlySet<number>>(new Set());
   useEffect(() => setMarked(new Set(wrong)), [wrong]);
   const unmark = (indices: readonly number[]) =>
@@ -75,6 +87,30 @@ export function HintTemplate({
   useEffect(() => {
     focus(firstEmptySlot(mask, values));
   }, [mask]);
+
+  // Ширина строки — чтобы слово длиннее строки разбить со знаком переноса, а не как попало.
+  const box = useRef<HTMLDivElement>(null);
+  const [lineWidth, setLineWidth] = useState(Number.POSITIVE_INFINITY);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    setLineWidth(el.getBoundingClientRect().width);
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setLineWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const perLine = cellsPerLine(lineWidth, MIN_CELL, GAP);
+  // Перестроились строки (повернули экран) — курсор остаётся в той же клетке.
+  const focused = useRef<number | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: только при смене числа клеток в строке
+  useLayoutEffect(() => {
+    if (focused.current !== null && document.activeElement === document.body) {
+      focus(focused.current);
+    }
+  }, [perLine]);
 
   const words = templateWords(mask);
   const longest = Math.max(1, ...words.map((w) => w.length));
@@ -136,67 +172,91 @@ export function HintTemplate({
     }
   };
 
+  const cell = (i: number) => {
+    if (isSlot(mask, i)) {
+      return (
+        <input
+          key={i}
+          ref={(el) => {
+            cells.current[i] = el;
+          }}
+          value={values[i] ?? ""}
+          onChange={(e) => change(i, e.target.value)}
+          onKeyDown={(e) => keyDown(i, e)}
+          onFocus={(e) => {
+            focused.current = i;
+            caretToEnd(e.currentTarget);
+          }}
+          // Выделение в клетках бессмысленно (одна буква) и мешает — сразу схлопываем его.
+          onSelect={(e) => caretToEnd(e.currentTarget)}
+          style={cellStyle}
+          className={cn(
+            "h-11 select-none rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center caret-transparent outline-none [-webkit-touch-callout:none] selection:bg-transparent focus:border-primary focus:bg-primary/10",
+            marked.has(i) &&
+              "border-destructive text-destructive focus:border-destructive",
+          )}
+          aria-invalid={marked.has(i) || undefined}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          lang="en"
+          enterKeyHint="go"
+          aria-label={`Буква ${i + 1}`}
+        />
+      );
+    }
+    return (
+      <span
+        key={i}
+        style={cellStyle}
+        className={cn(
+          "inline-flex h-11 items-center justify-center",
+          isRevealed(mask, i) &&
+            "border-hint border-b-2 font-semibold text-hint",
+        )}
+        data-revealed={isRevealed(mask, i) || undefined}
+      >
+        {mask[i]}
+      </span>
+    );
+  };
+
+  // Слово целиком в строке; длиннее строки — по кускам, в конце куска серая стрелка переноса.
+  const renderWord = (word: number[]) => {
+    // Разметка одна и та же для целого и разбитого слова — клетки не пересоздаются.
+    const lines = splitWord(word, perLine);
+    const parts = lines.map((line, n) => (
+      <div key={line[0]} className="flex" style={{ gap: `${GAP}px` }}>
+        {line.map(cell)}
+        {n < lines.length - 1 && (
+          <span
+            style={cellStyle}
+            className="inline-flex h-11 items-center justify-center text-muted-foreground text-xl"
+            aria-hidden
+            data-testid="wrap-mark"
+          >
+            →
+          </span>
+        )}
+      </div>
+    ));
+    return (
+      <div key={word[0]} className="flex flex-col gap-y-3">
+        {parts}
+      </div>
+    );
+  };
+
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
+    <form ref={form} onSubmit={submit} className="flex flex-col gap-3">
       <div
+        ref={box}
         className="flex select-none flex-wrap gap-y-3 font-mono"
         style={{ containerType: "inline-size", columnGap: `${WORD_GAP}px` }}
         data-testid="hint-mask"
       >
-        {words.map((word) => (
-          <div
-            key={word[0]}
-            className="flex flex-wrap"
-            style={{ gap: `${GAP}px` }}
-          >
-            {word.map((i) => {
-              if (isSlot(mask, i)) {
-                return (
-                  <input
-                    key={i}
-                    ref={(el) => {
-                      cells.current[i] = el;
-                    }}
-                    value={values[i] ?? ""}
-                    onChange={(e) => change(i, e.target.value)}
-                    onKeyDown={(e) => keyDown(i, e)}
-                    onFocus={(e) => caretToEnd(e.currentTarget)}
-                    // Выделение в клетках бессмысленно (одна буква) и мешает — сразу схлопываем его.
-                    onSelect={(e) => caretToEnd(e.currentTarget)}
-                    style={cellStyle}
-                    className={cn(
-                      "h-11 select-none rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center caret-transparent outline-none [-webkit-touch-callout:none] selection:bg-transparent focus:border-primary focus:bg-primary/10",
-                      marked.has(i) &&
-                        "border-destructive text-destructive focus:border-destructive",
-                    )}
-                    aria-invalid={marked.has(i) || undefined}
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    lang="en"
-                    enterKeyHint="go"
-                    aria-label={`Буква ${i + 1}`}
-                  />
-                );
-              }
-              return (
-                <span
-                  key={i}
-                  style={cellStyle}
-                  className={cn(
-                    "inline-flex h-11 items-center justify-center",
-                    isRevealed(mask, i) &&
-                      "border-hint border-b-2 font-semibold text-hint",
-                  )}
-                  data-revealed={isRevealed(mask, i) || undefined}
-                >
-                  {mask[i]}
-                </span>
-              );
-            })}
-          </div>
-        ))}
+        {words.map(renderWord)}
       </div>
       <Button type="submit" size="lg" disabled={disabled || !filled}>
         Проверить
