@@ -372,6 +372,40 @@ describe("шаблон сразу для невыученных слов", () =>
   });
 });
 
+describe("ошибка в целиком заполненном шаблоне", () => {
+  it("подчёркивает неверные клетки и не открывает букву — на вводе и на подсказках", () => {
+    const { add, step } = setup();
+    const word = add("вода", ["water"]);
+    const typed = step(word.id, "type", "wotes", {
+      cells: ["w", "o", "t", "e", "s"],
+    });
+    expect(typed).toMatchObject({ next: "hint", revealed: 0, wrong: [1, 4] });
+
+    const again = step(word.id, "hint", "wazes", {
+      cells: ["w", "a", "z", "e", "s"],
+    });
+    expect(again).toMatchObject({ next: "hint", revealed: 0, wrong: [2, 4] });
+
+    // Одна ошибка в «water» — опечатка: засчитано с ошибкой, как в обычном поле.
+    const other = add("лес", ["forest"]);
+    expect(
+      step(other.id, "type", "forist", { cells: [..."forist"] }),
+    ).toMatchObject({ verdict: "typo", next: "done" });
+
+    // Не всё заполнено — как раньше: неверная попытка открывает букву.
+    const partial = step(word.id, "hint", "wa", {
+      cells: ["w", "a", "", "", ""],
+    });
+    expect(partial.revealed).toBe(1);
+    expect(partial.wrong).toBeUndefined();
+
+    // Одна открытая буква из пяти (20%) — «Трудно».
+    const done = step(word.id, "hint", "water");
+    expect(done.next).toBe("done");
+    expect(done.outcome?.grade).toBe(Rating.Hard);
+  });
+});
+
 describe("несколько переводов", () => {
   it("карточка показывает главную форму крупно, остальные формы из словаря — отдельно", () => {
     const { db, userId, clock, add } = setup();

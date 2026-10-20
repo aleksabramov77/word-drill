@@ -8,6 +8,27 @@ function isLetter(ch: string | undefined): boolean {
   return ch !== undefined && LETTER.test(ch);
 }
 
+/**
+ * Клетки шаблона с неверными буквами — или null, если заполнены не все клетки.
+ * Шаблон заполнен целиком, но мимо — это обычная ошибка: показываем, где ошибся, букву не открываем.
+ */
+export function wrongCells(
+  answer: string,
+  revealed: readonly number[],
+  cells: readonly string[] | undefined,
+): number[] | null {
+  if (!cells) return null;
+  const open = new Set(revealed);
+  const slots = [...answer]
+    .map((ch, i) => (isLetter(ch) && !open.has(i) ? i : -1))
+    .filter((i) => i >= 0);
+  if (slots.some((i) => !cells[i])) return null;
+  const chars = [...answer];
+  return slots.filter(
+    (i) => cells[i]?.toLowerCase() !== chars[i]?.toLowerCase(),
+  );
+}
+
 /** Ответ для шаблона: без артикля и «to» в начале — проверка ответа их и так не требует. */
 export function templateBase(answer: string): string {
   return answer.replace(/^(a|an|the)\s+/i, "").replace(/^to\s+/i, "");

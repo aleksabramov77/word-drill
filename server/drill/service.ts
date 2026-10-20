@@ -16,6 +16,7 @@ import {
   maskAnswer,
   nextHintIndex,
   templateBase,
+  wrongCells,
 } from "../../src/shared/lib/hints/index.ts";
 import {
   type Card,
@@ -435,6 +436,7 @@ function hintStep(
   revealed: number[];
   hintLevel: HintLevel;
   checked?: CheckResult;
+  wrong?: number[];
 } {
   const answer = templateBase(row.answers[0] ?? "");
   const revealed = [...attempt.revealed];
@@ -484,6 +486,17 @@ function hintStep(
       hintLevel,
       checked,
     };
+  // Шаблон заполнен целиком — обычная ошибка: подсвечиваем неверные клетки, букву не открываем.
+  const wrong =
+    hintLevel === 2 ? wrongCells(answer, revealed, step.cells) : null;
+  if (wrong)
+    return {
+      result: { stage: "hint", correct, exhausted: false },
+      revealed,
+      hintLevel,
+      checked,
+      wrong,
+    };
   const gaveMore = more();
   const exhausted = !gaveMore || revealed.length * 2 > hintLetters(answer);
   return {
@@ -510,6 +523,8 @@ export function answerStep(
   let result: StageResult;
   let attempt: Attempt;
   let checked: CheckResult | undefined;
+  /** Шаблон заполнен целиком, но мимо: клетки с неверными буквами. */
+  let wrong: number[] | undefined;
 
   if (step.stage === "type") {
     ({ result, attempt, checked } = typeStep(
@@ -525,6 +540,13 @@ export function answerStep(
       (result.template || checked.verdict === "synonym")
         ? 2
         : 1;
+    if (
+      result.stage === "type" &&
+      result.template &&
+      checked.verdict !== "synonym"
+    ) {
+      wrong = wrongCells(templateBase(answer), [], step.cells) ?? undefined;
+    }
   } else {
     // Шаги ниже ввода продолжают начатый показ; без него (страница открыта заново) — считаем, что ввод не удался.
     const current: Attempt = row.attempt ?? {
@@ -538,7 +560,7 @@ export function answerStep(
     let revealed = current.revealed;
     let hintLevel = current.hintLevel;
     if (step.stage === "hint") {
-      ({ result, revealed, hintLevel, checked } = hintStep(
+      ({ result, revealed, hintLevel, checked, wrong } = hintStep(
         dictionary,
         row,
         step,
@@ -583,6 +605,7 @@ export function answerStep(
       mask: maskAnswer(templateBase(answer), attempt.revealed),
       revealed: attempt.revealed.length,
       hintLevel: attempt.hintLevel ?? 2,
+      ...(wrong?.length ? { wrong } : {}),
     };
   }
   if (next === "choice") {

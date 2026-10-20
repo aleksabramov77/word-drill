@@ -4,4 +4,5 @@ export {
   maskAnswer,
   nextHintIndex,
   templateBase,
+  wrongCells,
 } from "./hints.ts";

@@ -98,6 +98,8 @@ export interface StepResult {
   revealed?: number;
   /** Уровень подсказки: 1 — число букв, 2 — шаблон. */
   hintLevel?: HintLevel;
+  /** Шаблон заполнен целиком, но мимо: клетки с неверными буквами. */
+  wrong?: number[];
   /** Варианты, если следующий шаг — выбор. */
   options?: string[];
   outcome?: {

@@ -139,6 +139,7 @@ export function AnswerCard({
     mask,
     revealed,
     hintLevel,
+    wrong,
     options,
     done,
     start,
@@ -193,6 +194,14 @@ export function AnswerCard({
                 : result.verdict === "partial"
                   ? "Близко! Исправь буквы или возьми подсказку:"
                   : "Не то. Исправь буквы или возьми подсказку:",
+            );
+          }
+          // Шаблон заполнен целиком, но мимо — обычная ошибка: показываем, где ошибся.
+          if (result.wrong?.length) {
+            setHintNote(
+              result.wrong.length === 1
+                ? "Ошибка подчёркнута красным — исправь букву или возьми подсказку:"
+                : "Ошибки подчёркнуты красным — исправь буквы или возьми подсказку:",
             );
           }
           if (stage === "show" && !result.correct) setShowTries((n) => n + 1);
@@ -318,9 +327,14 @@ export function AnswerCard({
               key={card.wordId}
               mask={stage === "type" ? (card.mask ?? []) : mask}
               onSubmit={(input, typed) =>
-                stage === "type" ? answer(input) : send({ input, cells: typed })
+                send(
+                  stage === "type"
+                    ? { input, elapsedMs: Date.now() - shownAt, cells: typed }
+                    : { input, cells: typed },
+                )
               }
               onCellsChange={onCellsChange}
+              wrong={wrong}
               disabled={step.isPending}
             />
             {stage === "hint" && (

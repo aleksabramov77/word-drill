@@ -50,6 +50,16 @@ describe("подсказки по буквам", () => {
     expect(templateBase("theory")).toBe("theory");
   });
 
+  it("неверные клетки — только когда шаблон заполнен целиком", () => {
+    const { wrongCells } = hintsModule;
+    expect(wrongCells("blood", [], ["b", "l", "u", "o", "t"])).toEqual([2, 4]);
+    // Открытая подсказкой буква — не клетка для ввода.
+    expect(wrongCells("blood", [0], ["", "l", "o", "o", "x"])).toEqual([4]);
+    expect(wrongCells("blood", [], ["b", "l", "", "o", "d"])).toBeNull();
+    expect(wrongCells("by far", [], ["B", "y", "", "f", "a", "r"])).toEqual([]);
+    expect(wrongCells("blood", [], undefined)).toBeNull();
+  });
+
   it("последнюю скрытую букву не открывает", () => {
     expect(nextHintIndex("cat", [0, 1])).toBeNull();
     expect(nextHintIndex("a", [])).toBeNull();
