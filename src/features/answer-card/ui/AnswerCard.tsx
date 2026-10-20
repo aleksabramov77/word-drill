@@ -1,4 +1,10 @@
-import { Copy, Lightbulb, ListChecks, RectangleEllipsis } from "lucide-react";
+import {
+  Copy,
+  Lightbulb,
+  ListChecks,
+  RectangleEllipsis,
+  Volume2,
+} from "lucide-react";
 import {
   type FormEvent,
   useCallback,
@@ -10,11 +16,18 @@ import {
 import { toast } from "sonner";
 import { WordStatusBadge } from "@/entities/word";
 import { untilText } from "@/shared/lib/format";
+import { canSpeak, speak } from "@/shared/lib/speech";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { type StepRequest, useAnswerStep } from "../api/drillApi.ts";
+import {
+  holdKeyboard,
+  keyboardHeld,
+  onHeldEnter,
+  releaseKeyboard,
+} from "../lib/keyboard.ts";
 import { lengthHint } from "../lib/template.ts";
 import { useAnswerStore } from "../model/store.ts";
 import type { DrillCard, StepResult, Verdict } from "../model/types.ts";
@@ -51,6 +64,12 @@ function TextAnswer({
   invalid?: boolean;
 }) {
   const [value, setValue] = useState("");
+  const form = useRef<HTMLFormElement>(null);
+  // Поле исчезает (ответ принят) — клавиатура остаётся открытой для следующего поля.
+  useLayoutEffect(() => {
+    const el = form.current;
+    return () => holdKeyboard(el);
+  }, []);
   const empty = value.trim() === "";
   // Пустой ответ не отправляется: на шаге ввода он значил бы «Не помню» — низший балл по случайному Enter.
   const submit = (e: FormEvent) => {
@@ -58,7 +77,7 @@ function TextAnswer({
     if (!empty) onSubmit(value);
   };
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2">
+    <form ref={form} onSubmit={submit} className="flex flex-col gap-2">
       <Input
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -95,6 +114,21 @@ function copyCard(card: DrillCard, expected: string) {
   );
 }
 
+/** Произнести слово голосом системы. */
+function SpeakButton({ text }: { text: string }) {
+  if (!canSpeak()) return null;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label="Произнести"
+      onClick={() => speak(text)}
+    >
+      <Volume2 />
+    </Button>
+  );
+}
+
 function Outcome({
   card,
   result,
@@ -107,7 +141,14 @@ function Outcome({
   onNext: () => void;
 }) {
   const nextRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => nextRef.current?.focus(), []);
+  const next = useRef(onNext);
+  next.current = onNext;
+  useEffect(() => {
+    // Клавиатура открыта — оставляем её: Enter на ней = «Дальше», следующее поле сразу с клавиатурой.
+    if (!keyboardHeld()) nextRef.current?.focus();
+    onHeldEnter(() => next.current());
+    return () => onHeldEnter(null);
+  }, []);
   const typed = via !== "other";
   const title = !typed
     ? "Запомни:"
@@ -129,14 +170,17 @@ function Outcome({
       </p>
       <div className="flex items-center justify-between gap-2">
         <p className="font-semibold text-2xl">{result.expected}</p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => copyCard(card, result.expected)}
-        >
-          <Copy />
-          Скопировать
-        </Button>
+        <div className="flex gap-2">
+          <SpeakButton text={result.expected} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => copyCard(card, result.expected)}
+          >
+            <Copy />
+            Скопировать
+          </Button>
+        </div>
       </div>
       {result.outcome && (
         <p className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
@@ -181,6 +225,9 @@ export function AnswerCard({
   const [showTries, setShowTries] = useState(0);
   /** До какого шага дошли: «Верно!» показываем, только если вспомнил сам (ввод или подсказки). */
   const [deepest, setDeepest] = useState<"type" | "hint" | "other">("type");
+
+  // Карточек больше нет — клавиатуру держать незачем.
+  useEffect(() => releaseKeyboard, []);
 
   useLayoutEffect(() => {
     start(card.wordId);
@@ -286,7 +333,13 @@ export function AnswerCard({
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-5 py-2">
+      <CardContent
+        className="flex flex-col gap-5 py-2"
+        // Касание кнопки не уводит фокус из поля: клавиатура не прячется, и «Дальше» срабатывает с первого раза.
+        onMouseDown={(e) => {
+          if ((e.target as Element).closest("button")) e.preventDefault();
+        }}
+      >
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground text-xs uppercase tracking-wide">
@@ -399,7 +452,10 @@ export function AnswerCard({
                 ? "Не совпало — перепиши точно:"
                 : "Правильный ответ — перепиши его, чтобы запомнить:"}
             </p>
-            <p className="font-semibold text-2xl">{last?.expected}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-2xl">{last?.expected}</p>
+              {last?.expected && <SpeakButton text={last.expected} />}
+            </div>
             <TextAnswer
               key={`show-${showTries}`}
               placeholder="Перепиши слово"

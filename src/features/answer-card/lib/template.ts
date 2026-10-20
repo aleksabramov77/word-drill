@@ -98,3 +98,24 @@ export function lengthHint(mask: Mask): string {
   if (counts.length <= 1) return `${lastCount} ${letters}`;
   return `${counts.length} ${plural(counts.length, "слово", "слова", "слов")}: ${counts.join(" + ")} ${letters}`;
 }
+
+/** Сколько клеток шириной cell с промежутком gap помещается в строку шириной width. */
+export function cellsPerLine(width: number, cell: number, gap: number): number {
+  return Math.max(2, Math.floor((width + gap) / (cell + gap)));
+}
+
+/**
+ * Слово по строкам: целиком, если влезает в строку; иначе куски по perLine − 1 клетке —
+ * последнее место в строке занимает знак переноса (не дефис: дефис в слове — обычная клетка).
+ */
+export function splitWord(
+  word: readonly number[],
+  perLine: number,
+): number[][] {
+  if (word.length <= perLine) return [[...word]];
+  const size = Math.max(1, perLine - 1);
+  const lines: number[][] = [];
+  for (let i = 0; i < word.length; i += size)
+    lines.push(word.slice(i, i + size));
+  return lines;
+}

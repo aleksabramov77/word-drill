@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  cellsPerLine,
   firstEmptySlot,
   lengthHint,
   prevSlot,
+  splitWord,
   templateAnswer,
   templateWords,
   typeInto,
@@ -69,5 +71,22 @@ describe("шаблон слова", () => {
     );
     // Апостроф — не буква.
     expect(lengthHint([null, null, null, "'", null])).toBe("4 буквы");
+  });
+});
+
+describe("перенос длинного слова", () => {
+  it("слово, которое влезает в строку, не разбивается", () => {
+    expect(splitWord([0, 1, 2], 3)).toEqual([[0, 1, 2]]);
+  });
+  it("слишком длинное — куски, в конце строки место под знак переноса", () => {
+    expect(splitWord([0, 1, 2, 3, 4, 5, 6], 4)).toEqual([
+      [0, 1, 2],
+      [3, 4, 5],
+      [6],
+    ]);
+  });
+  it("клеток в строке по ширине", () => {
+    // 343px, клетка 14.4px + 3px промежуток → 19 клеток.
+    expect(cellsPerLine(343, 14.4, 3)).toBe(19);
   });
 });

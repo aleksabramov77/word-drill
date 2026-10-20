@@ -223,3 +223,44 @@ test("новое слово, верно в шаблоне — «Верно!»; �
     /^присматривать — to look after/,
   );
 });
+
+test("фокус сразу в поле, Enter после ответа — «Дальше»; длинное слово переносится стрелкой", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 760 });
+  await page.goto("/words");
+  await page.getByRole("tab", { name: "Вручную" }).click();
+  await addManual(page, "лёгочная болезнь", "pneumonoultramicroscopic");
+  await addManual(page, "кот", "cat");
+  const { words } = await (await page.request.get("/api/words")).json();
+  const id = words.find(
+    (w: { prompt: string }) => w.prompt === "лёгочная болезнь",
+  ).id;
+  await page.goto(`/?word=${id}`);
+
+  // Длинное слово не влезает в строку — разбито, в конце строки стрелка переноса.
+  const mask = page.getByTestId("hint-mask");
+  await expect(mask.getByRole("textbox")).toHaveCount(24);
+  await expect(mask.getByTestId("wrap-mark").first()).toBeVisible();
+  // Клетка уже в фокусе — можно сразу печатать.
+  await expect(page.getByLabel("Буква 1", { exact: true })).toBeFocused();
+  await page.keyboard.type("pneumonoultramicroscopic");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Верно!", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Произнести" })).toBeVisible();
+
+  // Клавиатура не закрывается: фокус в держателе, Enter — следующая карточка, и её поле сразу в фокусе.
+  expect(
+    await page.evaluate(
+      () => document.activeElement?.getAttribute("aria-hidden") === "true",
+    ),
+  ).toBe(true);
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "кот" })).toBeVisible();
+  await expect(page.getByLabel("Буква 1", { exact: true })).toBeFocused();
+
+  // Касание «Не помню» не уводит фокус из клетки.
+  await page.getByRole("button", { name: "Не помню" }).click();
+  await expect(page.getByText("Подсказок: 0.")).toBeVisible();
+  await expect(page.getByLabel("Буква 1", { exact: true })).toBeFocused();
+});
