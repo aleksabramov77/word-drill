@@ -149,6 +149,8 @@ test("лестница: шаблон для новых слов, обычное 
     "aria-invalid",
   );
   await expect(mask.locator("[aria-invalid]")).toHaveCount(4);
+  // Курсор — на первой ошибке, а не в начале слова: верную «w» перебивать не нужно.
+  await expect(page.getByLabel("Буква 2", { exact: true })).toBeFocused();
   // «Ещё буква» открывает одну из ошибочных клеток (голубая), остальные остаются красными.
   await page.getByRole("button", { name: "Ещё буква" }).click();
   await expect(page.getByText("Подсказок: 1.")).toBeVisible();
