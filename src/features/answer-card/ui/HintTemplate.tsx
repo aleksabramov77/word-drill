@@ -82,11 +82,15 @@ export function HintTemplate({
 
   useEffect(() => onCellsChange(values), [values, onCellsChange]);
 
-  // Новая подсказка — курсор в первую пустую клетку.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: только при смене шаблона
+  // Неверная попытка — курсор на первую ошибку (верные буквы перебивать незачем);
+  // новая подсказка — в первую пустую клетку.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: только при смене шаблона или ошибок
   useEffect(() => {
-    focus(firstEmptySlot(mask, values));
-  }, [mask]);
+    const firstWrong = wrong
+      .filter((i) => isSlot(mask, i))
+      .sort((a, b) => a - b)[0];
+    focus(firstWrong ?? firstEmptySlot(mask, values));
+  }, [mask, wrong]);
 
   // Ширина строки — чтобы слово длиннее строки разбить со знаком переноса, а не как попало.
   const box = useRef<HTMLDivElement>(null);
@@ -191,9 +195,9 @@ export function HintTemplate({
           onSelect={(e) => caretToEnd(e.currentTarget)}
           style={cellStyle}
           className={cn(
-            "h-11 select-none rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center caret-transparent outline-none [-webkit-touch-callout:none] selection:bg-transparent focus:border-primary focus:bg-primary/10",
+            "h-11 select-none rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center caret-transparent outline-none [-webkit-touch-callout:none] selection:bg-transparent focus:border-b-4 focus:border-primary focus:bg-primary/25 focus:ring-2 focus:ring-primary focus:ring-inset",
             marked.has(i) &&
-              "border-destructive text-destructive focus:border-destructive",
+              "border-destructive text-destructive focus:border-destructive focus:bg-destructive/15 focus:ring-destructive",
           )}
           aria-invalid={marked.has(i) || undefined}
           autoComplete="off"
