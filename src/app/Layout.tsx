@@ -1,4 +1,4 @@
-import { BookOpen, CircleEllipsis, Dumbbell } from "lucide-react";
+import { BookOpen, ChartColumn, CircleEllipsis, Dumbbell } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 import { FontSizeButtons } from "@/features/font-size";
 import { cn } from "@/shared/lib/utils";
@@ -7,6 +7,7 @@ import { Toaster } from "@/shared/ui/sonner";
 const NAV = [
   { to: "/", label: "Тренировка", icon: Dumbbell },
   { to: "/words", label: "Слова", icon: BookOpen },
+  { to: "/stats", label: "Статистика", icon: ChartColumn },
   { to: "/more", label: "Ещё", icon: CircleEllipsis },
 ] as const;
 
@@ -29,7 +30,8 @@ export function Layout() {
               end={to === "/"}
               className={({ isActive }) =>
                 cn(
-                  "flex flex-1 flex-col items-center gap-0.5 py-2 text-sm",
+                  // Четыре подписи в ряд: при крупном шрифте не шире экрана, иначе слипаются.
+                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[min(0.875rem,3.4vw)]",
                   isActive ? "text-foreground" : "text-muted-foreground",
                 )
               }

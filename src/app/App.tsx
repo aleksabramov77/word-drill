@@ -13,6 +13,7 @@ import { LoginPage } from "@/pages/login";
 import { MorePage } from "@/pages/more";
 import { PrivacyPage } from "@/pages/privacy";
 import { SharePage } from "@/pages/share";
+import { StatsPage } from "@/pages/stats";
 import { WordsPage } from "@/pages/words";
 import { queryClient } from "@/shared/api";
 import { Layout } from "./Layout.tsx";
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <DrillPage /> },
       { path: "/words", element: <WordsPage /> },
+      { path: "/stats", element: <StatsPage /> },
       { path: "/more/:section?", element: <MorePage /> },
       { path: "/settings/:section?", element: <SettingsRedirect /> },
       { path: "/share", element: <SharePage /> },
