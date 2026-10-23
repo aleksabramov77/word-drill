@@ -28,6 +28,7 @@ import {
   onHeldEnter,
   releaseKeyboard,
 } from "../lib/keyboard.ts";
+import { useStickToVisibleTop } from "../lib/sticky.ts";
 import { lengthHint } from "../lib/template.ts";
 import { useAnswerStore } from "../model/store.ts";
 import type { DrillCard, StepResult, Verdict } from "../model/types.ts";
@@ -56,12 +57,14 @@ function TextAnswer({
   onSubmit,
   disabled,
   invalid,
+  lang,
 }: {
   placeholder: string;
   submitLabel: string;
   onSubmit: (value: string) => void;
   disabled: boolean;
   invalid?: boolean;
+  lang: "en" | "ru";
 }) {
   const [value, setValue] = useState("");
   const form = useRef<HTMLFormElement>(null);
@@ -87,10 +90,10 @@ function TextAnswer({
         autoCorrect="off"
         autoCapitalize="none"
         spellCheck={false}
-        lang="en"
+        lang={lang}
         enterKeyHint="go"
         aria-invalid={invalid}
-        aria-label="Ответ по-английски"
+        aria-label={lang === "ru" ? "Ответ по-русски" : "Ответ по-английски"}
         className="h-12 text-lg"
       />
       <Button type="submit" size="lg" disabled={disabled || empty}>
@@ -171,7 +174,9 @@ function Outcome({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="break-words font-semibold text-3xl">{result.expected}</p>
         <div className="flex gap-2">
-          <SpeakButton text={result.expected} />
+          <SpeakButton
+            text={card.direction === "en-ru" ? card.prompt : result.expected}
+          />
           <Button
             variant="outline"
             size="sm"
@@ -228,7 +233,13 @@ export function AnswerCard({
 
   // Карточек больше нет — клавиатуру держать незачем.
   useEffect(() => releaseKeyboard, []);
+  const promptRef = useRef<HTMLHeadingElement>(null);
+  useStickToVisibleTop(promptRef);
+  const reverse = card.direction === "en-ru";
+  const lang = reverse ? "ru" : "en";
+  const writeHere = reverse ? "Напиши по-русски" : "Напиши по-английски";
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: то же слово в другую сторону — новая карточка
   useLayoutEffect(() => {
     start(card.wordId);
     setLastInput("");
@@ -236,11 +247,11 @@ export function AnswerCard({
     setHintNote(null);
     setShowTries(0);
     setDeepest("type");
-  }, [card.wordId, start]);
+  }, [card.wordId, card.direction, start]);
 
-  const send = (request: Omit<StepRequest, "wordId" | "stage">) =>
+  const send = (request: Omit<StepRequest, "wordId" | "direction" | "stage">) =>
     step.mutate(
-      { wordId: card.wordId, stage, ...request },
+      { wordId: card.wordId, direction: card.direction, stage, ...request },
       {
         onSuccess: (result) => {
           if (!request.action) setLastInput(request.input);
@@ -340,34 +351,46 @@ export function AnswerCard({
           if ((e.target as Element).closest("button")) e.preventDefault();
         }}
       >
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-muted-foreground text-xs uppercase tracking-wide">
-              {card.isNew
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-muted-foreground text-xs uppercase tracking-wide">
+            {reverse
+              ? card.isNew
+                ? "новое: как по-русски"
+                : card.hot
+                  ? "повтор: как по-русски"
+                  : "как по-русски"
+              : card.isNew
                 ? "новое слово"
                 : card.hot
                   ? "повтор"
                   : "как по-английски"}
-            </span>
-            {/* Наверху, подальше от «Проверить»: случайное нажатие — сразу низший балл. */}
-            {stage === "type" && !done && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={step.isPending}
-                onClick={() => answer("")}
-              >
-                Не помню
-              </Button>
-            )}
-          </div>
-          <h2 className="font-semibold text-3xl">{card.prompt}</h2>
-          {card.alsoPrompts.length > 0 && (
-            <p className="text-base text-muted-foreground">
-              {card.alsoPrompts.join(" · ")}
-            </p>
+          </span>
+          {/* Наверху, подальше от «Проверить»: случайное нажатие — сразу низший балл. */}
+          {stage === "type" && !done && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={step.isPending}
+              onClick={() => answer("")}
+            >
+              Не помню
+            </Button>
           )}
         </div>
+        {/* Слово прилипает к верху экрана: длинная карточка и открытая клавиатура его не уносят.
+            Прямой потомок карточки — иначе sticky держится только в пределах своего блока. */}
+        <h2
+          ref={promptRef}
+          lang={reverse ? "en" : "ru"}
+          className="-mx-2 -mt-4 sticky top-[env(safe-area-inset-top)] z-10 break-words bg-card px-2 py-1 font-semibold text-3xl"
+        >
+          {card.prompt}
+        </h2>
+        {card.alsoPrompts.length > 0 && (
+          <p className="-mt-4 text-base text-muted-foreground">
+            {card.alsoPrompts.join(" · ")}
+          </p>
+        )}
 
         {done?.verdict === "typo" && (
           <AnswerDiff input={lastInput} expected={done.expected} />
@@ -377,10 +400,11 @@ export function AnswerCard({
           <Outcome card={card} result={done} via={deepest} onNext={onNext} />
         ) : stage === "type" && !card.template ? (
           <TextAnswer
-            placeholder="Напиши по-английски"
+            placeholder={writeHere}
             submitLabel="Проверить"
             onSubmit={answer}
             disabled={step.isPending}
+            lang={lang}
           />
         ) : stage === "hint" && hintLevel === 1 ? (
           <div className="flex flex-col gap-3">
@@ -390,10 +414,11 @@ export function AnswerCard({
             </p>
             <TextAnswer
               key={`hint-${hintTries}`}
-              placeholder="Напиши по-английски"
+              placeholder={writeHere}
               submitLabel="Проверить"
               onSubmit={answer}
               disabled={step.isPending}
+              lang={lang}
             />
             {hintButtons}
           </div>
@@ -404,7 +429,8 @@ export function AnswerCard({
               {stage === "type" ? "Впиши слово по буквам:" : hintIntro}
             </p>
             <HintTemplate
-              key={card.wordId}
+              key={`${card.wordId}-${card.direction}`}
+              lang={lang}
               mask={stage === "type" ? (card.mask ?? []) : mask}
               onSubmit={(input, typed) =>
                 send(
@@ -454,7 +480,9 @@ export function AnswerCard({
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-semibold text-2xl">{last?.expected}</p>
-              {last?.expected && <SpeakButton text={last.expected} />}
+              {last?.expected && card.direction === "ru-en" && (
+                <SpeakButton text={last.expected} />
+              )}
             </div>
             <TextAnswer
               key={`show-${showTries}`}
@@ -463,6 +491,7 @@ export function AnswerCard({
               onSubmit={answer}
               disabled={step.isPending}
               invalid={showTries > 0}
+              lang={lang}
             />
           </div>
         )}

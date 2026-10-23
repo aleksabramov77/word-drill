@@ -51,6 +51,7 @@ export function HintTemplate({
   onCellsChange,
   wrong,
   disabled,
+  lang = "en",
 }: {
   mask: Mask;
   /** Клетки с неверными буквами после попытки — подчёркнуты красным, пока их не исправишь. */
@@ -60,6 +61,8 @@ export function HintTemplate({
   /** Вписанное — чтобы «Ещё буква» не открывала уже верно вписанные буквы. */
   onCellsChange: (cells: string[]) => void;
   disabled: boolean;
+  /** Язык ответа — для клавиатуры и проверки орфографии. */
+  lang?: "en" | "ru";
 }) {
   // Введённое сохраняется между попытками: открытая буква просто встаёт поверх.
   const [values, setValues] = useState(() => mask.map(() => ""));
@@ -212,7 +215,7 @@ export function HintTemplate({
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck={false}
-          lang="en"
+          lang={lang}
           enterKeyHint="go"
           aria-label={`Буква ${i + 1}`}
         />

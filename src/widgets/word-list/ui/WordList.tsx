@@ -61,6 +61,27 @@ function WordRow({ word }: { word: Word }) {
             </span>
           )}
         </span>
+        {word.reverse && (
+          <span
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-sm"
+            data-testid="reverse-status"
+          >
+            <span>en → ru:</span>
+            <WordStatusBadge status={word.reverse.status} />
+            {word.reverse.hot && (
+              <Flame
+                className="size-5 text-orange-500"
+                aria-label="горячий круг"
+              />
+            )}
+            {word.reverse.status !== "new" && (
+              <span>
+                знание {Math.round(word.reverse.knowledge * 100)}% · повтор{" "}
+                {untilText(new Date(word.reverse.due))}
+              </span>
+            )}
+          </span>
+        )}
       </div>
       <DeleteButton word={word} />
     </li>

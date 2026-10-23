@@ -13,8 +13,13 @@ export const verdictSchema = z.enum([
 ]);
 export type Verdict = z.infer<typeof verdictSchema>;
 
+export const directionSchema = z.enum(["ru-en", "en-ru"]);
+/** ru-en — по-русски спрашиваем, по-английски отвечаешь; en-ru — наоборот. */
+export type Direction = z.infer<typeof directionSchema>;
+
 export const drillCardSchema = z.object({
   wordId: z.number(),
+  direction: directionSchema.default("ru-en"),
   prompt: z.string(),
   /** Другие русские формы того же слова (по словарю) — мелко под главной, в случайном порядке. */
   alsoPrompts: z.array(z.string()).default([]),

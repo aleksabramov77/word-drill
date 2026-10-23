@@ -46,6 +46,7 @@ import {
 } from "../dictionary/index.ts";
 import type {
   Attempt,
+  Direction,
   DrillQueue,
   HintLevel,
   StepInput,
@@ -76,6 +77,7 @@ export function fromStoredCard(stored: StoredCard): Card {
 
 function toView(row: WordRow, now: Date): WordView {
   const card = fromStoredCard(row.card);
+  const rev = row.revCard ? fromStoredCard(row.revCard) : null;
   return {
     id: row.id,
     prompt: row.prompt,
@@ -91,8 +93,111 @@ function toView(row: WordRow, now: Date): WordView {
     due: card.due.toISOString(),
     reps: card.reps,
     lapses: card.lapses,
+    reverse: rev
+      ? {
+          status: wordStatus(
+            rev,
+            (row.revLastGrade ?? undefined) as ReviewGrade | undefined,
+          ),
+          hot: isHot(rev),
+          knowledge: knowledge(rev),
+          due: rev.due.toISOString(),
+        }
+      : null,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/** Знание прямого направления, после которого открывается обратное. */
+export const REVERSE_FROM = TEMPLATE_UNTIL;
+/** Обратное не спрашиваем сразу после прямого: ответ ещё перед глазами. */
+const REVERSE_PAUSE_MS = 60 * 60_000;
+
+/** Слово в одном направлении: что спрашиваем, какие ответы принимаем и чья карточка FSRS. */
+interface Facing {
+  row: WordRow;
+  direction: Direction;
+  prompt: string;
+  /** Допустимые ответы; первый — основной. */
+  answers: string[];
+  card: Card;
+  attempt: Attempt | null;
+}
+
+function facing(
+  row: WordRow,
+  direction: Direction,
+  now: Date,
+  dictionary?: Dictionary,
+): Facing {
+  if (direction === "ru-en") {
+    return {
+      row,
+      direction,
+      prompt: row.prompt,
+      answers: row.answers,
+      card: fromStoredCard(row.card),
+      attempt: row.attempt,
+    };
+  }
+  // Обратно: английское слово, ответ — любая русская форма (своя и из словаря курса).
+  const en = row.answers[0] ?? "";
+  return {
+    row,
+    direction,
+    prompt: en,
+    answers: uniqueAnswers([
+      row.prompt,
+      ...(dictionary ? otherForms(dictionary, en, row.prompt) : []),
+    ]),
+    card: row.revCard ? fromStoredCard(row.revCard) : newCard(now),
+    attempt: row.revAttempt,
+  };
+}
+
+/** Обратное направление уже начато или прямое выучено наполовину (и не только что отвечено). */
+function reverseOpen(row: WordRow, now: Date): boolean {
+  if (row.revCard) return true;
+  const card = fromStoredCard(row.card);
+  const since = card.last_review
+    ? now.getTime() - card.last_review.getTime()
+    : Number.POSITIVE_INFINITY;
+  return knowledge(card) >= REVERSE_FROM && since >= REVERSE_PAUSE_MS;
+}
+
+/** Записать карточку, оценку и незаконченный показ своего направления. */
+function saveSide(
+  db: Db,
+  f: Facing,
+  patch: { card?: Card; lastGrade?: number; attempt: Attempt | null },
+) {
+  const card = patch.card ?? f.card;
+  if (f.direction === "ru-en") {
+    db.update(words)
+      .set({
+        ...(patch.card ? { card: toStoredCard(card), due: card.due } : {}),
+        ...(patch.lastGrade !== undefined
+          ? { lastGrade: patch.lastGrade }
+          : {}),
+        attempt: patch.attempt,
+      })
+      .where(eq(words.id, f.row.id))
+      .run();
+    return;
+  }
+  // Первый показ обратного — карточка появляется в базе, дальше направление уже открыто.
+  db.update(words)
+    .set({
+      ...(patch.card || !f.row.revCard
+        ? { revCard: toStoredCard(card), revDue: card.due }
+        : {}),
+      ...(patch.lastGrade !== undefined
+        ? { revLastGrade: patch.lastGrade }
+        : {}),
+      revAttempt: patch.attempt,
+    })
+    .where(eq(words.id, f.row.id))
+    .run();
 }
 
 const text = z.string().trim().min(1).max(100);
@@ -223,25 +328,31 @@ export function drillQueue(
   }: {
     includeNew?: boolean;
     /** Слово из уведомления — показать его первым. */
-    prefer?: number;
+    prefer?: { id: number; direction?: Direction };
     /** Новые слова — только добавленные раньше этого момента (уведомления не шлют слово, которое только что добавили). */
     newAddedBefore?: Date;
     /** Словарь — для других русских форм слова на карточке. */
     dictionary?: Dictionary;
   } = {},
 ): DrillQueue {
-  const rows = userWords(db, userId).map((row) => ({
-    row,
-    card: fromStoredCard(row.card),
-  }));
+  const rows = userWords(db, userId).flatMap((row) => [
+    facing(row, "ru-en", now, dictionary),
+    ...(reverseOpen(row, now) ? [facing(row, "en-ru", now, dictionary)] : []),
+  ]);
+  // Новые: сначала обратные (слово уже знакомо), потом новые слова — по порядку добавления.
   const fresh = rows
     .filter(
-      ({ row, card }) =>
+      ({ row, card, direction }) =>
         card.state === State.New &&
-        (!newAddedBefore ||
+        (direction === "en-ru" ||
+          !newAddedBefore ||
           row.createdAt.getTime() <= newAddedBefore.getTime()),
     )
-    .sort((a, b) => a.row.createdAt.getTime() - b.row.createdAt.getTime());
+    .sort(
+      (a, b) =>
+        Number(a.direction === "ru-en") - Number(b.direction === "ru-en") ||
+        a.row.createdAt.getTime() - b.row.createdAt.getTime(),
+    );
   const started = rows.filter(({ card }) => card.state !== State.New);
   const due = started
     .filter(({ card }) => card.due.getTime() <= now.getTime())
@@ -259,24 +370,29 @@ export function drillQueue(
   const preferred =
     prefer === undefined
       ? undefined
-      : rows.find(({ row }) => row.id === prefer);
+      : rows.find(
+          ({ row, direction }) =>
+            row.id === prefer.id && direction === (prefer.direction ?? "ru-en"),
+        );
   const pick = preferred ?? due[0] ?? (includeNew ? fresh[0] : undefined);
-  const base = templateBase(pick?.row.answers[0] ?? "");
+  const base = templateBase(pick?.answers[0] ?? "");
   const template = pick ? startsInTemplate(pick.card) : false;
   return {
     card: pick
       ? {
           wordId: pick.row.id,
-          prompt: pick.row.prompt,
-          alsoPrompts: dictionary
-            ? shuffle(
-                otherForms(
-                  dictionary,
-                  pick.row.answers[0] ?? "",
-                  pick.row.prompt,
-                ),
-              )
-            : [],
+          direction: pick.direction,
+          prompt: pick.prompt,
+          alsoPrompts:
+            dictionary && pick.direction === "ru-en"
+              ? shuffle(
+                  otherForms(
+                    dictionary,
+                    pick.row.answers[0] ?? "",
+                    pick.row.prompt,
+                  ),
+                )
+              : [],
           letters: letterCount(base),
           template,
           ...(template ? { mask: maskAnswer(base, []) } : {}),
@@ -298,29 +414,37 @@ function startsInTemplate(card: Card): boolean {
 function choiceOptions(
   db: Db,
   userId: string,
-  row: WordRow,
+  f: Facing,
   dictionary: Dictionary,
 ): string[] {
-  const answer = row.answers[0] ?? "";
-  const excluded = new Set(row.answers.map(normalize));
-  const pool = [
-    ...userWords(db, userId)
-      .filter((other) => other.id !== row.id)
-      .map((other) => other.answers[0] ?? ""),
-    ...dictionary.words.map((word) => word.en),
-  ].filter((word) => !excluded.has(normalize(word)));
+  const answer = f.answers[0] ?? "";
+  const excluded = new Set(f.answers.map(normalize));
+  const others = userWords(db, userId).filter((other) => other.id !== f.row.id);
+  const pool = (
+    f.direction === "ru-en"
+      ? [
+          ...others.map((other) => other.answers[0] ?? ""),
+          ...dictionary.words.map((word) => word.en),
+        ]
+      : [
+          ...others.map((other) => other.prompt),
+          ...dictionary.words.flatMap((word) => word.ru.slice(0, 1)),
+        ]
+  ).filter((word) => !excluded.has(normalize(word)));
   return shuffle([answer, ...pickDistractors(answer, pool, CHOICE_COUNT - 1)]);
 }
 
-function otherAnswers(db: Db, userId: string, wordId: number): string[] {
-  return userWords(db, userId)
-    .filter((row) => row.id !== wordId)
-    .flatMap((row) => row.answers);
+/** Ответы других слов в том же направлении — чтобы узнать «это перевод другого слова». */
+function otherAnswers(db: Db, userId: string, f: Facing): string[] {
+  const others = userWords(db, userId).filter((row) => row.id !== f.row.id);
+  return f.direction === "ru-en"
+    ? others.flatMap((row) => row.answers)
+    : others.map((row) => row.prompt);
 }
 
 function finish(
   db: Db,
-  row: WordRow,
+  f: Facing,
   attempt: Attempt,
   now: Date,
 ): NonNullable<StepResult["outcome"]> {
@@ -329,24 +453,17 @@ function finish(
       first: attempt.first,
       deepest: attempt.deepest,
       revealed: attempt.revealed.length,
-      letters: hintLetters(templateBase(row.answers[0] ?? "")),
+      letters: hintLetters(templateBase(f.answers[0] ?? "")),
     },
     attempt.speed,
   );
-  const card = reviewCard(fromStoredCard(row.card), grade, now);
-  db.update(words)
-    .set({
-      card: toStoredCard(card),
-      due: card.due,
-      lastGrade: grade,
-      attempt: null,
-    })
-    .where(eq(words.id, row.id))
-    .run();
+  const card = reviewCard(f.card, grade, now);
+  saveSide(db, f, { card, lastGrade: grade, attempt: null });
   db.insert(reviews)
     .values({
-      userId: row.userId,
-      wordId: row.id,
+      userId: f.row.userId,
+      wordId: f.row.id,
+      direction: f.direction,
       at: now,
       first: attempt.first,
       deepest: attempt.deepest,
@@ -365,7 +482,10 @@ function finish(
 }
 
 /** Другие переводы того, что показано на карточке (главная форма и остальные по словарю). */
-function cardSynonyms(dictionary: Dictionary, row: WordRow): string[] {
+function cardSynonyms(dictionary: Dictionary, f: Facing): string[] {
+  // Обратно все русские формы слова и так засчитываются как верные.
+  if (f.direction === "en-ru") return [];
+  const { row } = f;
   const forms = [
     row.prompt,
     ...otherForms(dictionary, row.answers[0] ?? "", row.prompt),
@@ -377,21 +497,21 @@ function typeStep(
   db: Db,
   dictionary: Dictionary,
   userId: string,
-  row: WordRow,
+  f: Facing,
   step: StepInput,
 ): { result: StageResult; attempt: Attempt; checked: CheckResult } {
   const checked = checkAnswer(
     step.input,
-    row.answers,
-    otherAnswers(db, userId, row.id),
-    cardSynonyms(dictionary, row),
+    f.answers,
+    otherAnswers(db, userId, f),
+    cardSynonyms(dictionary, f),
   );
   const result: StageResult = {
     stage: "type",
     verdict: checked.verdict,
     // Пустой ответ — кнопка «Не помню».
     ...(normalize(step.input) === "" ? { forgot: true } : {}),
-    ...(startsInTemplate(fromStoredCard(row.card)) ? { template: true } : {}),
+    ...(startsInTemplate(f.card) ? { template: true } : {}),
   };
   let speed: Speed = "normal";
   const elapsedMs = step.elapsedMs ?? null;
@@ -428,7 +548,7 @@ function typeStep(
  */
 function hintStep(
   dictionary: Dictionary,
-  row: WordRow,
+  f: Facing,
   step: StepInput,
   attempt: Attempt,
 ): {
@@ -438,7 +558,7 @@ function hintStep(
   checked?: CheckResult;
   wrong?: number[];
 } {
-  const answer = templateBase(row.answers[0] ?? "");
+  const answer = templateBase(f.answers[0] ?? "");
   const revealed = [...attempt.revealed];
   let hintLevel: HintLevel = attempt.hintLevel ?? 2;
   /** Подсказать больше: сначала шаблон, потом буква. false — подсказывать больше нечего. */
@@ -473,9 +593,9 @@ function hintStep(
   }
   const checked = checkAnswer(
     step.input,
-    row.answers,
+    f.answers,
     [],
-    cardSynonyms(dictionary, row),
+    cardSynonyms(dictionary, f),
   );
   const correct = checked.verdict === "correct" || checked.verdict === "typo";
   // Синоним — не ошибка: подсказка не растёт, просто «загадано другое слово».
@@ -518,7 +638,8 @@ export function answerStep(
 ): StepResult | null {
   const row = findWord(db, userId, wordId);
   if (!row) return null;
-  const answer = row.answers[0] ?? "";
+  const f = facing(row, step.direction ?? "ru-en", now, dictionary);
+  const answer = f.answers[0] ?? "";
 
   let result: StageResult;
   let attempt: Attempt;
@@ -527,13 +648,7 @@ export function answerStep(
   let wrong: number[] | undefined;
 
   if (step.stage === "type") {
-    ({ result, attempt, checked } = typeStep(
-      db,
-      dictionary,
-      userId,
-      row,
-      step,
-    ));
+    ({ result, attempt, checked } = typeStep(db, dictionary, userId, f, step));
     // Шаблон сразу, если слово вводили в шаблон или ввели другой верный перевод (смысл понятен — найти именно это слово).
     attempt.hintLevel =
       result.stage === "type" &&
@@ -549,7 +664,7 @@ export function answerStep(
     }
   } else {
     // Шаги ниже ввода продолжают начатый показ; без него (страница открыта заново) — считаем, что ввод не удался.
-    const current: Attempt = row.attempt ?? {
+    const current: Attempt = f.attempt ?? {
       first: { stage: "type", verdict: "wrong" },
       speed: "normal",
       stage: step.stage,
@@ -562,15 +677,15 @@ export function answerStep(
     if (step.stage === "hint") {
       ({ result, revealed, hintLevel, checked, wrong } = hintStep(
         dictionary,
-        row,
+        f,
         step,
         current,
       ));
     } else {
       const correct =
         step.stage === "choice"
-          ? row.answers.some((a) => normalize(a) === normalize(step.input))
-          : checkAnswer(step.input, row.answers).verdict === "correct";
+          ? f.answers.some((a) => normalize(a) === normalize(step.input))
+          : checkAnswer(step.input, f.answers).verdict === "correct";
       result = { stage: step.stage, correct };
     }
     attempt = {
@@ -590,7 +705,7 @@ export function answerStep(
     next,
   };
   if (next === "done") {
-    return { ...base, outcome: finish(db, row, attempt, now) };
+    return { ...base, outcome: finish(db, f, attempt, now) };
   }
 
   attempt = {
@@ -598,7 +713,7 @@ export function answerStep(
     stage: next,
     deepest: deeperStage(attempt.deepest, next),
   };
-  db.update(words).set({ attempt }).where(eq(words.id, row.id)).run();
+  saveSide(db, f, { attempt });
   if (next === "hint") {
     return {
       ...base,
@@ -609,7 +724,7 @@ export function answerStep(
     };
   }
   if (next === "choice") {
-    return { ...base, options: choiceOptions(db, userId, row, dictionary) };
+    return { ...base, options: choiceOptions(db, userId, f, dictionary) };
   }
   return base;
 }

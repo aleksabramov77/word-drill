@@ -20,6 +20,16 @@ export const wordSchema = z.object({
   due: z.string(),
   reps: z.number(),
   lapses: z.number(),
+  /** Обратное направление (английское → русское); null — ещё не открыто. */
+  reverse: z
+    .object({
+      status: wordStatusSchema,
+      hot: z.boolean(),
+      knowledge: z.number(),
+      due: z.string(),
+    })
+    .nullable()
+    .default(null),
   createdAt: z.string(),
 });
 export type Word = z.infer<typeof wordSchema>;

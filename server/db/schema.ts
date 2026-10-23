@@ -7,7 +7,12 @@ import {
 } from "drizzle-orm/sqlite-core";
 import type { SpeedSample } from "../../src/shared/lib/srs/index.ts";
 import type { AccessStatus } from "../auth/access.ts";
-import type { Attempt, StoredCard, WordSource } from "../drill/types.ts";
+import type {
+  Attempt,
+  Direction,
+  StoredCard,
+  WordSource,
+} from "../drill/types.ts";
 import type { UserSettings } from "../users.ts";
 
 export const users = sqliteTable("users", {
@@ -137,6 +142,12 @@ export const words = sqliteTable(
     lastGrade: integer("last_grade"),
     /** Незаконченный показ: лестница прошла ввод, но ещё не дошла до конца. */
     attempt: text("attempt", { mode: "json" }).$type<Attempt>(),
+    // Обратное направление (английское → пишешь по-русски): свой прогресс FSRS.
+    // Null — ещё не начато: открывается, когда прямое знание дошло до TEMPLATE_UNTIL.
+    revCard: text("rev_card", { mode: "json" }).$type<StoredCard>(),
+    revDue: integer("rev_due", { mode: "timestamp_ms" }),
+    revLastGrade: integer("rev_last_grade"),
+    revAttempt: text("rev_attempt", { mode: "json" }).$type<Attempt>(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [
@@ -164,6 +175,8 @@ export const reviews = sqliteTable(
     hints: integer("hints").notNull().default(0),
     grade: integer("grade").notNull(),
     elapsedMs: integer("elapsed_ms"),
+    /** ru-en — русское → английское, en-ru — обратно. */
+    direction: text("direction").$type<Direction>().notNull().default("ru-en"),
   },
   (t) => [index("reviews_user_at").on(t.userId, t.at)],
 );
