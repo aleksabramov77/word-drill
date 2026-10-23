@@ -5,6 +5,7 @@ import {
   useDictionarySearch,
   useUnits,
   useUnitWords,
+  useWiktionarySearch,
 } from "@/entities/dictionary";
 import { useWords, type Word } from "@/entities/word";
 import { normalize } from "@/shared/lib/answer-check";
@@ -16,6 +17,7 @@ import { filterUnits } from "../model/units.ts";
 import { DictionaryWordRow } from "./DictionaryWordRow.tsx";
 import { InboxTab } from "./InboxTab.tsx";
 import { ManualWordForm } from "./ManualWordForm.tsx";
+import { WiktionaryRow } from "./WiktionaryRow.tsx";
 
 /** Слово словаря → уже добавленное слово списка (по английскому ответу) — для «Добавлено» и «Убрать». */
 function useAddedWords(): (en: string) => Word | undefined {
@@ -27,7 +29,20 @@ function useAddedWords(): (en: string) => Word | undefined {
 function SearchTab() {
   const [query, setQuery] = useState("");
   const { data: hits, isFetching } = useDictionarySearch(query);
+  const { data: wiktAll } = useWiktionarySearch(query);
+  // Слово уже нашлось в курсе — второй раз из Викисловаря не показываем.
+  const wikt = useMemo(() => {
+    const inCourse = new Set(
+      (hits ?? []).flatMap((hit) => hit.word.ru.map(normalize)),
+    );
+    return wiktAll?.filter((hit) => !inCourse.has(normalize(hit.ru)));
+  }, [hits, wiktAll]);
   const added = useAddedWords();
+  const { data: words } = useWords();
+  const byPrompt = useMemo(
+    () => new Map((words ?? []).map((w) => [normalize(w.prompt), w])),
+    [words],
+  );
   return (
     <div className="flex flex-col gap-3">
       <Input
@@ -40,7 +55,7 @@ function SearchTab() {
       />
       {query.trim() !== "" && hits?.length === 0 && !isFetching && (
         <p className="text-muted-foreground text-sm">
-          В словаре курса не нашлось — добавь вручную.
+          В словаре курса не нашлось.
         </p>
       )}
       <ul className="flex flex-col gap-2">
@@ -53,6 +68,29 @@ function SearchTab() {
           />
         ))}
       </ul>
+      {query.trim() !== "" && wikt && wikt.length > 0 && (
+        <section className="flex flex-col gap-2 pt-2">
+          <h3 className="font-semibold text-lg">Из Викисловаря</h3>
+          <p className="text-muted-foreground text-sm">
+            Слова вне курса. Касанием выбери переводы, которые засчитывать.
+            Источник — Wiktionary (CC BY-SA).
+          </p>
+          <ul className="flex flex-col gap-2">
+            {wikt.map((hit) => (
+              <WiktionaryRow
+                key={`${hit.ru}:${query}`}
+                hit={hit}
+                added={byPrompt.get(normalize(hit.ru))}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+      {query.trim() !== "" && hits?.length === 0 && wikt?.length === 0 && (
+        <p className="text-muted-foreground text-sm">
+          Нигде не нашлось — добавь вручную.
+        </p>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   dictionaryUnitSchema,
   dictionaryWordSchema,
   searchHitSchema,
+  wiktHitSchema,
 } from "../model/types.ts";
 
 const STATIC = { staleTime: Number.POSITIVE_INFINITY };
@@ -16,6 +17,21 @@ export function useDictionarySearch(query: string) {
     queryFn: () =>
       apiFetch(`/dictionary/search?q=${encodeURIComponent(q)}`, {
         schema: z.object({ hits: z.array(searchHitSchema) }),
+      }).then((data) => data.hits),
+    enabled: q.length > 0,
+    placeholderData: keepPreviousData,
+    ...STATIC,
+  });
+}
+
+/** Слова вне курса — из Викисловаря. */
+export function useWiktionarySearch(query: string) {
+  const q = query.trim();
+  return useQuery({
+    queryKey: ["dictionary", "wiktionary", q],
+    queryFn: () =>
+      apiFetch(`/dictionary/wiktionary?q=${encodeURIComponent(q)}&limit=8`, {
+        schema: z.object({ hits: z.array(wiktHitSchema) }),
       }).then((data) => data.hits),
     enabled: q.length > 0,
     placeholderData: keepPreviousData,
