@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   check:
-    # Не ubuntu-latest: с 19.10.2026 это Ubuntu 26, и `playwright install --with-deps` там зависал до тайм-аута.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -31,7 +30,9 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
       - run: pnpm check
       - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
+      # Без --with-deps: библиотеки Chromium в образе уже есть, а apt-зеркало Azure бывает таким медленным,
+      # что установка шрифтов не успевала за 10 минут (10.2026).
+      - run: pnpm exec playwright install chromium
         timeout-minutes: 5
       - run: pnpm test:e2e
       # Скриншоты и трассировки упавших e2e: gh run download <id>, затем playwright show-trace.
