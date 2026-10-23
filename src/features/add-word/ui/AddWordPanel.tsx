@@ -99,7 +99,7 @@ export function AddWordPanel() {
       value={tab}
       onValueChange={(value) => setParams({ tab: value }, { replace: true })}
     >
-      <TabsList className="w-full">
+      <TabsList className="grid w-full grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] group-data-[orientation=horizontal]/tabs:h-auto">
         <TabsTrigger value="search">Поиск</TabsTrigger>
         <TabsTrigger value="unit">Юнит</TabsTrigger>
         <TabsTrigger value="manual">Вручную</TabsTrigger>

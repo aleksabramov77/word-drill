@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+/* Тёмная тема — по системной настройке, как и переменные цветов ниже. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 /* Тема shadcn/ui (neutral). Тёмная — по системной настройке. */
 :root {
@@ -16,7 +17,8 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* Вторичный текст темнее, чем в shadcn по умолчанию, — читается без приближения. */
+  --muted-foreground: oklch(0.44 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -42,10 +44,11 @@
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
+    --muted-foreground: oklch(0.8 0 0);
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
+    /* Светлый красный: тёмно-красный на чёрном почти не виден. */
+    --destructive: oklch(0.78 0.16 22);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
@@ -53,6 +56,12 @@
     --hint: oklch(0.746 0.16 232.661);
     --warning: oklch(0.8 0.15 75);
   }
+}
+
+/* Самый мелкий текст — 14px, а не 12px: мелкое не разобрать без приближения. */
+@theme {
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.25rem;
 }
 
 @theme inline {

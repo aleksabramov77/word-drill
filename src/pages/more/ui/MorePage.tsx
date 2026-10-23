@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock,
   Gauge,
+  History,
   KeyRound,
   Lock,
   type LucideIcon,
@@ -28,6 +29,7 @@ import { PushHelp } from "./help/PushHelp.tsx";
 import { ScoringHelp } from "./help/ScoringHelp.tsx";
 import { ScreenshotHelp } from "./help/ScreenshotHelp.tsx";
 import { TrainingHelp } from "./help/TrainingHelp.tsx";
+import { WhatsNew } from "./help/WhatsNew.tsx";
 
 interface Section {
   slug: string;
@@ -114,6 +116,13 @@ const GROUPS: Group[] = [
         hint: "Команда на iPhone, «Поделиться» на Android",
         icon: ScanText,
         content: () => <ScreenshotHelp />,
+      },
+      {
+        slug: "whats-new",
+        title: "Что нового",
+        hint: "История обновлений по версиям",
+        icon: History,
+        content: () => <WhatsNew />,
       },
     ],
   },

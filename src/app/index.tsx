@@ -2,9 +2,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { SHORTCUT_OPENED_KEY } from "@/features/api-token";
 import { registerAppUpdates } from "@/features/app-update";
+import { applyFontSize } from "@/features/font-size";
 import { logEvent } from "@/shared/api";
 import { App } from "./App.tsx";
 import "./styles/index.css";
+
+// Размер шрифта, выбранный кнопками A− / A+, — до первой отрисовки.
+applyFontSize();
 
 // Service worker нужен для уведомлений; новая версия включается по плашке «Обновить».
 registerAppUpdates();

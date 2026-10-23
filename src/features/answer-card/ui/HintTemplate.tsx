@@ -36,8 +36,8 @@ function caretToEnd(cell: HTMLInputElement | null | undefined) {
 /** Промежуток между клетками и между словами, px. */
 const GAP = 3;
 const WORD_GAP = 16;
-/** Самая узкая клетка, px (0.9rem). */
-const MIN_CELL = 14.4;
+/** Самая узкая клетка, rem. */
+const MIN_CELL_REM = 0.9;
 /** Фраза до стольких клеток встаёт в одну строку; длиннее — слова переносятся, но каждое целиком. */
 const ONE_LINE = 16;
 
@@ -106,7 +106,10 @@ export function HintTemplate({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const perLine = cellsPerLine(lineWidth, MIN_CELL, GAP);
+  const rootPx =
+    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
+    16;
+  const perLine = cellsPerLine(lineWidth, MIN_CELL_REM * rootPx, GAP);
   // Перестроились строки (повернули экран) — курсор остаётся в той же клетке.
   const focused = useRef<number | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: только при смене числа клеток в строке
@@ -144,6 +147,11 @@ export function HintTemplate({
       return;
     }
     // Курсор всегда после буквы клетки: новая буква приходит следом за старой — берём только новую.
+    // Пробел с экранной клавиатуры (iOS не всегда присылает keydown) — игнорируем.
+    if (raw.trim() === (values[i] ?? "")) {
+      caretToEnd(cells.current[i]);
+      return;
+    }
     const old = values[i] ?? "";
     const text =
       old && raw.length > 1 && raw.startsWith(old)
@@ -171,8 +179,8 @@ export function HintTemplate({
       const next = nextSlot(mask, i + 1);
       if (next >= 0) focus(next);
     } else if (e.key === " ") {
+      // Пробел не нужен: после последней буквы слова курсор сам уходит в следующее.
       e.preventDefault();
-      focus(typeInto(mask, values, i, " ").cursor);
     }
   };
 
