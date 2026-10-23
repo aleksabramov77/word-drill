@@ -1,6 +1,6 @@
 {
   "name": "word-drill",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.34.5",
@@ -12,6 +12,7 @@
     "build": "vite build && tsdown",
     "start": "NODE_ENV=production node dist/server.mjs",
     "dict:import": "tsx scripts/dict-import.ts",
+    "wikt:import": "tsx scripts/wikt-import.ts",
     "db:generate": "drizzle-kit generate",
     "vapid": "tsx scripts/vapid.ts",
     "pwa:icons": "pwa-assets-generator",

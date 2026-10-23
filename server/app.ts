@@ -49,10 +49,13 @@ import {
 import { rememberAppVersion } from "./push/update.ts";
 import { userStats } from "./stats/service.ts";
 import { APP_VERSION } from "./version.ts";
+import { EMPTY_WIKTIONARY, type Wiktionary } from "./wiktionary/index.ts";
 
 export interface AppDeps {
   db: Db;
   dictionary: Dictionary;
+  /** Словарь Викисловаря — слова вне курса; по умолчанию пустой. */
+  wiktionary?: Wiktionary;
   /** По умолчанию — dev: все запросы от локального пользователя. */
   auth?: AuthConfig;
   identity?: IdentityProvider;
@@ -92,6 +95,7 @@ async function body(req: { json: () => Promise<unknown> }): Promise<unknown> {
 export function createApp({
   db,
   dictionary,
+  wiktionary = EMPTY_WIKTIONARY,
   auth = { mode: "dev", email: "local@localhost" },
   identity,
   pusher,
@@ -132,6 +136,14 @@ export function createApp({
     if (!parsed.success) return c.json({ error: "bad query" }, 400);
     const { q, limit } = parsed.data;
     return c.json({ hits: searchDictionary(dictionary, q, limit) });
+  });
+
+  // Слова вне курса — из Викисловаря.
+  app.get("/dictionary/wiktionary", (c) => {
+    const parsed = searchQuerySchema.safeParse(c.req.query());
+    if (!parsed.success) return c.json({ error: "bad query" }, 400);
+    const { q, limit } = parsed.data;
+    return c.json({ hits: wiktionary.search(q, Math.min(limit, 20)) });
   });
 
   app.get("/dictionary/units", (c) => c.json({ units: dictionary.units }));

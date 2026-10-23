@@ -20,3 +20,12 @@ export const searchHitSchema = z.object({
   matched: z.string(),
 });
 export type SearchHit = z.infer<typeof searchHitSchema>;
+
+/** Слово из Викисловаря: русское слово и короткие английские переводы. */
+export const wiktHitSchema = z.object({
+  ru: z.string(),
+  en: z.array(z.string()),
+  /** Что совпало, если не само слово: форма («крови») или английский перевод. */
+  matched: z.string().optional(),
+});
+export type WiktHit = z.infer<typeof wiktHitSchema>;

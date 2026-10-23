@@ -22,6 +22,7 @@ mkdir -p "$stage/data"
 cp -R dist "$stage/dist"
 cp -R drizzle "$stage/drizzle"
 cp data/dictionary.json "$stage/data/dictionary.json"
+cp data/wiktionary.tsv.gz "$stage/data/wiktionary.tsv.gz"
 sqlite_version=$(node -p 'require("./node_modules/better-sqlite3/package.json").version')
 cat >"$stage/package.json" <<JSON
 {

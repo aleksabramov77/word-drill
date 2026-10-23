@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
@@ -17,6 +17,7 @@ import { createWebPushSender, readVapidConfig } from "./push/sender.ts";
 import { pushTick } from "./push/service.ts";
 import { announceUpdate } from "./push/update.ts";
 import { APP_VERSION } from "./version.ts";
+import { DEFAULT_WIKTIONARY_PATH, openWiktionary } from "./wiktionary/index.ts";
 
 const port = Number(process.env.PORT ?? 5100);
 const isProd = process.env.NODE_ENV === "production";
@@ -32,6 +33,12 @@ const dictionary = loadDictionary(
   process.env.DICTIONARY_PATH ?? DEFAULT_DICTIONARY_PATH,
 );
 
+// Викисловарь — в своей базе рядом с основной (пересобирается сама, когда файл словаря обновили).
+const wiktionary = openWiktionary(
+  process.env.WIKTIONARY_PATH ?? DEFAULT_WIKTIONARY_PATH,
+  join(dirname(databasePath), "wiktionary.db"),
+);
+
 const vapid = readVapidConfig(process.env);
 const pusher = vapid ? createWebPushSender(vapid) : undefined;
 
@@ -41,6 +48,7 @@ root.route(
   createApp({
     db,
     dictionary,
+    wiktionary,
     auth,
     identity: auth.mode === "google" ? createGoogleProvider(auth) : undefined,
     pusher,
