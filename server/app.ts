@@ -46,6 +46,7 @@ import {
   updateSettings,
 } from "./push/service.ts";
 import { rememberAppVersion } from "./push/update.ts";
+import { userStats } from "./stats/service.ts";
 import { APP_VERSION } from "./version.ts";
 
 export interface AppDeps {
@@ -204,6 +205,8 @@ export function createApp({
     if (result) markPushesAnswered(db, c.get("userId"), now());
     return result ? c.json(result) : c.json({ error: "not found" }, 404);
   });
+
+  app.get("/stats", (c) => c.json(userStats(db, c.get("userId"), now())));
 
   app.get("/settings", (c) =>
     c.json({ settings: getSettings(db, c.get("userId")) }),
