@@ -15,6 +15,7 @@ import {
   searchDictionary,
   unitWords,
 } from "./dictionary/index.ts";
+import { wordsCsv } from "./drill/export.ts";
 import {
   addWord,
   addWordSchema,
@@ -145,6 +146,19 @@ export function createApp({
   app.get("/words", (c) =>
     c.json({ words: listWords(db, c.get("userId"), now()) }),
   );
+
+  // Выгрузка списка слов: открывается в Excel, Numbers, Google Таблицах.
+  app.get("/words/export.csv", (c) => {
+    const userId = c.get("userId");
+    const { timeZone } = getSettings(db, userId);
+    const at = now();
+    const day = at.toISOString().slice(0, 10);
+    return c.body(wordsCsv(listWords(db, userId, at), timeZone), 200, {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="word-drill-${day}.csv"`,
+      "Cache-Control": "no-store",
+    });
+  });
 
   app.post("/words", async (c) => {
     const parsed = addWordSchema.safeParse(await body(c.req));
