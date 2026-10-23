@@ -39,18 +39,18 @@ function WordRow({ word }: { word: Word }) {
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border p-3">
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="truncate">
+        <span className="break-words">
           <span className="font-medium">{word.prompt}</span>
           <span className="text-muted-foreground">
             {" "}
             — {word.answers.join(", ")}
           </span>
         </span>
-        <span className="flex items-center gap-2 text-muted-foreground text-xs">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-sm">
           <WordStatusBadge status={word.status} />
           {word.hot && (
             <Flame
-              className="size-3.5 text-orange-500"
+              className="size-5 text-orange-500"
               aria-label="горячий круг"
             />
           )}

@@ -2,6 +2,7 @@
 // Так у каждой выкатки свой номер. Запуск: tsx scripts/check-version.ts origin/main
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { hasRelease } from "../src/shared/lib/changelog/index.ts";
 import { compareVersions } from "../src/shared/lib/semver/index.ts";
 
 const baseRef = process.argv[2];
@@ -26,6 +27,12 @@ if (compareVersions(current, base) <= 0) {
   console.error(
     `Версия ${current} не выше, чем в ${baseRef} (${base}). Подними её в package.json: ` +
       "исправление — третья цифра, новая возможность — вторая, крупная переделка — первая.",
+  );
+  process.exit(1);
+}
+if (!hasRelease(readFileSync("CHANGELOG.md", "utf8"), current)) {
+  console.error(
+    `В CHANGELOG.md нет записи «## ${current} — дата» с пунктами: что добавлено, исправлено, изменилось.`,
   );
   process.exit(1);
 }

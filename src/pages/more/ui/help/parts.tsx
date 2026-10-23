@@ -4,14 +4,14 @@ import type { ReactNode } from "react";
 
 export function Article({ children }: { children: ReactNode }) {
   return (
-    <article className="flex flex-col gap-3 text-sm leading-relaxed">
+    <article className="flex flex-col gap-3 text-base leading-relaxed">
       {children}
     </article>
   );
 }
 
 export function H2({ children }: { children: ReactNode }) {
-  return <h2 className="mt-2 font-semibold text-base">{children}</h2>;
+  return <h2 className="mt-2 font-semibold text-lg">{children}</h2>;
 }
 
 export function Steps({ children }: { children: ReactNode }) {
@@ -24,7 +24,7 @@ export function Bullets({ children }: { children: ReactNode }) {
 
 export function Note({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-lg bg-secondary p-3 text-muted-foreground text-xs">
+    <p className="rounded-lg bg-secondary p-3 text-muted-foreground text-sm">
       {children}
     </p>
   );

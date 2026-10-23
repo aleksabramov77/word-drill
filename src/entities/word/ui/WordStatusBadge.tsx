@@ -9,10 +9,12 @@ const LABELS: Record<WordStatus, string> = {
 };
 
 const STYLES: Record<WordStatus, string> = {
-  new: "bg-secondary text-secondary-foreground",
-  learning: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  errors: "bg-warning/20 text-amber-700 dark:text-amber-300",
-  learned: "bg-success/15 text-emerald-700 dark:text-emerald-300",
+  // Контрастные пары: тёмный текст на светлом фоне, в тёмной теме — белый на насыщенном.
+  new: "bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-white",
+  learning: "bg-sky-200 text-sky-950 dark:bg-sky-800 dark:text-white",
+  errors: "bg-amber-200 text-amber-950 dark:bg-amber-700 dark:text-white",
+  learned:
+    "bg-emerald-200 text-emerald-950 dark:bg-emerald-800 dark:text-white",
 };
 
 export function WordStatusBadge({ status }: { status: WordStatus }) {

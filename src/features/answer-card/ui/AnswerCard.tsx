@@ -168,8 +168,8 @@ function Outcome({
       >
         {title}
       </p>
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-semibold text-2xl">{result.expected}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="break-words font-semibold text-3xl">{result.expected}</p>
         <div className="flex gap-2">
           <SpeakButton text={result.expected} />
           <Button
@@ -341,7 +341,7 @@ export function AnswerCard({
         }}
       >
         <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-muted-foreground text-xs uppercase tracking-wide">
               {card.isNew
                 ? "новое слово"
@@ -452,7 +452,7 @@ export function AnswerCard({
                 ? "Не совпало — перепиши точно:"
                 : "Правильный ответ — перепиши его, чтобы запомнить:"}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="font-semibold text-2xl">{last?.expected}</p>
               {last?.expected && <SpeakButton text={last.expected} />}
             </div>
