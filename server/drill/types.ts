@@ -10,6 +10,9 @@ import type {
 
 export type WordSource = "dictionary" | "manual" | "inbox";
 
+/** ru-en — показываем русское, пишешь по-английски; en-ru — наоборот. */
+export type Direction = "ru-en" | "en-ru";
+
 /** Карточка FSRS в JSON: даты строками ISO. */
 export type StoredCard = Omit<Card, "due" | "last_review"> & {
   due: string;
@@ -48,11 +51,20 @@ export interface WordView {
   due: string;
   reps: number;
   lapses: number;
+  /** Обратное направление (английское → по-русски); null — ещё не открыто. */
+  reverse: {
+    status: WordStatus;
+    hot: boolean;
+    knowledge: number;
+    due: string;
+  } | null;
   createdAt: string;
 }
 
 export interface DrillCard {
   wordId: number;
+  direction: Direction;
+  /** Что спрашиваем: русское слово (ru-en) или английское (en-ru). */
   prompt: string;
   /** Другие русские формы того же слова (по словарю), в случайном порядке. */
   alsoPrompts: string[];
@@ -76,6 +88,7 @@ export interface DrillQueue {
 }
 
 export interface StepInput {
+  direction?: Direction;
   stage: Stage;
   input: string;
   elapsedMs?: number;

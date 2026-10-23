@@ -4,10 +4,11 @@ import { untilText } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 
 export function DrillPage() {
-  // ?word=ID — пришли из уведомления: сначала это слово, дальше обычная очередь.
+  // ?word=ID(&dir=en-ru) — пришли из уведомления: сначала это слово, дальше обычная очередь.
   const [params, setParams] = useSearchParams();
   const word = Number(params.get("word")) || undefined;
-  const { data: queue, isLoading, isError, refetch } = useDrillQueue(word);
+  const dir = params.get("dir") === "en-ru" ? "en-ru" : undefined;
+  const { data: queue, isLoading, isError, refetch } = useDrillQueue(word, dir);
   const next = () => (word ? setParams({}) : refetch());
 
   if (isLoading) return <p className="text-muted-foreground">Загрузка…</p>;

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Db } from "../db/client.ts";
 import { pushLog, pushSubscriptions, users } from "../db/schema.ts";
 import { drillQueue } from "../drill/service.ts";
+import type { Direction } from "../drill/types.ts";
 import { DEFAULT_SETTINGS, type UserSettings } from "../users.ts";
 import { decidePush, localTime, type PushHistory } from "./decide.ts";
 import type { PushPayload, PushSender } from "./sender.ts";
@@ -188,11 +189,18 @@ export async function notifyEmails(
   return delivered;
 }
 
-export function wordPayload(wordId: number, prompt: string): PushPayload {
+export function wordPayload(
+  wordId: number,
+  prompt: string,
+  direction: Direction = "ru-en",
+): PushPayload {
   return {
-    title: "Как по-английски?",
+    title: direction === "ru-en" ? "Как по-английски?" : "Как по-русски?",
     body: prompt,
-    url: `/?word=${wordId}`,
+    url:
+      direction === "ru-en"
+        ? `/?word=${wordId}`
+        : `/?word=${wordId}&dir=${direction}`,
     tag: "word",
   };
 }
@@ -230,7 +238,7 @@ export async function pushTick(
       db,
       sender,
       userId,
-      wordPayload(card.wordId, card.prompt),
+      wordPayload(card.wordId, card.prompt, card.direction),
     );
     if (delivered === 0) continue;
     db.insert(pushLog)

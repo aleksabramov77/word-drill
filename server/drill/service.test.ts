@@ -35,6 +35,7 @@ function setup() {
       elapsedMs?: number;
       action?: "reveal" | "choices";
       cells?: string[];
+      direction?: "ru-en" | "en-ru";
     } = {},
   ) => {
     const result = answerStep(
@@ -437,5 +438,88 @@ describe("несколько переводов", () => {
     const done = step(word.id, "hint", "by far");
     expect(done.next).toBe("done");
     expect(done.outcome?.grade).toBe(Rating.Hard);
+  });
+});
+
+describe("обратное направление (английское → по-русски)", () => {
+  it("закрыто, пока прямое знание ниже половины", () => {
+    const { db, userId, clock, add } = setup();
+    const word = add("кровь", ["blood"]);
+    const queue = drillQueue(db, userId, clock.now(), {
+      dictionary: fixtureDictionary,
+    });
+    expect(queue.card?.direction).toBe("ru-en");
+    expect(queue.newCount).toBe(1);
+    expect(listWords(db, userId, clock.now())[0]?.reverse).toBeNull();
+    expect(word.reverse).toBeNull();
+  });
+
+  it("выученное слово: обратная карточка, ответ — любая русская форма; свой прогресс", () => {
+    const { db, userId, clock, addKnown, step } = setup();
+    const word = addKnown("кровь", ["blood"]);
+    // Прямое пора повторить — оно первым; обратное — новое, следом.
+    const first = drillQueue(db, userId, clock.now(), {
+      dictionary: fixtureDictionary,
+    });
+    expect(first.card?.direction).toBe("ru-en");
+    expect(first.newCount).toBe(1);
+
+    const preferred = drillQueue(db, userId, clock.now(), {
+      dictionary: fixtureDictionary,
+      prefer: { id: word.id, direction: "en-ru" },
+    });
+    expect(preferred.card).toMatchObject({
+      wordId: word.id,
+      direction: "en-ru",
+      prompt: "blood",
+      isNew: true,
+      template: true,
+      alsoPrompts: [],
+    });
+    expect(preferred.card?.mask).toHaveLength(5);
+
+    // «крови» — тоже верно: форма из словаря курса.
+    const done = step(word.id, "type", "крови", { direction: "en-ru" });
+    expect(done.correct).toBe(true);
+    expect(done.next).toBe("done");
+    expect(done.expected).toBe("крови");
+
+    const view = listWords(db, userId, clock.now())[0];
+    expect(view?.reverse?.status).toBe("learning");
+    // Прямое направление не тронуто.
+    expect(view?.reps).toBe(5);
+  });
+
+  it("обратное: ошибка → подсказки по русскому слову, варианты — русские слова", () => {
+    const { db, userId, clock, addKnown, add, step } = setup();
+    const word = addKnown("кровь", ["blood"]);
+    add("молоко", ["milk"]);
+    const wrong = step(word.id, "type", "мясо", { direction: "en-ru" });
+    expect(wrong.next).toBe("hint");
+    expect(wrong.mask).toHaveLength(5);
+    const choice = step(word.id, "hint", "", {
+      direction: "en-ru",
+      action: "choices",
+    });
+    expect(choice.options).toContain("кровь");
+    expect(choice.options?.every((o) => /^[а-яё ]+$/i.test(o))).toBe(true);
+    // Прямой незаконченный показ не появился.
+    const row = db.select().from(words).where(eq(words.id, word.id)).get();
+    expect(row?.attempt).toBeNull();
+    expect(row?.revAttempt?.stage).toBe("choice");
+    expect(drillQueue(db, userId, clock.now()).card?.direction).toBe("ru-en");
+  });
+
+  it("сразу после прямого ответа обратное не спрашивается", () => {
+    const { db, userId, clock, addKnown, step } = setup();
+    const word = addKnown("кровь", ["blood"]);
+    step(word.id, "type", "blood", { elapsedMs: 3000 });
+    const now = drillQueue(db, userId, clock.now());
+    expect(now.card).toBeNull();
+    clock.advance(61 * MINUTE);
+    expect(drillQueue(db, userId, clock.now()).card).toMatchObject({
+      direction: "en-ru",
+      prompt: "blood",
+    });
   });
 });

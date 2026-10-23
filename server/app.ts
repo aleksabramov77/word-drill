@@ -66,7 +66,10 @@ const searchQuerySchema = z.object({
 
 const idSchema = z.coerce.number().int().positive();
 
+const directionSchema = z.enum(["ru-en", "en-ru"]);
+
 const stepSchema = z.object({
+  direction: directionSchema.default("ru-en"),
   stage: z.enum(["type", "hint", "choice", "show"]),
   input: z.string().max(200),
   elapsedMs: z.number().int().min(0).max(3_600_000).optional(),
@@ -171,9 +174,15 @@ export function createApp({
 
   app.get("/drill/next", (c) => {
     const word = idSchema.safeParse(c.req.query("word"));
+    const direction = directionSchema.safeParse(c.req.query("dir"));
     return c.json(
       drillQueue(db, c.get("userId"), now(), {
-        prefer: word.success ? word.data : undefined,
+        prefer: word.success
+          ? {
+              id: word.data,
+              direction: direction.success ? direction.data : undefined,
+            }
+          : undefined,
         dictionary,
       }),
     );

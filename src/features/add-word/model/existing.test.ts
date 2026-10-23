@@ -14,6 +14,7 @@ const word = (id: number, prompt: string, answers: string[]): Word => ({
   due: "2026-10-17T00:00:00.000Z",
   reps: 0,
   lapses: 0,
+  reverse: null,
   createdAt: "2026-10-17T00:00:00.000Z",
 });
 
