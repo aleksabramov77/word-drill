@@ -4,6 +4,7 @@ import { SHORTCUT_OPENED_KEY } from "@/features/api-token";
 import { registerAppUpdates } from "@/features/app-update";
 import { applyFontSize } from "@/features/font-size";
 import { logEvent } from "@/shared/api";
+import { prepareSpeech } from "@/shared/lib/speech";
 import { App } from "./App.tsx";
 import "./styles/index.css";
 
@@ -12,6 +13,9 @@ applyFontSize();
 
 // Service worker нужен для уведомлений; новая версия включается по плашке «Обновить».
 registerAppUpdates();
+
+// Голоса для кнопки «Произнести» — заранее, чтобы первое слово не запиналось.
+prepareSpeech();
 
 // Журнал (server/log.ts): запуск приложения и ошибки JavaScript — их иначе не увидеть на телефоне.
 logEvent("app-open", {
