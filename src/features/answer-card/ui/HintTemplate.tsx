@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { logEvent } from "@/shared/api";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { holdKeyboard } from "../lib/keyboard.ts";
@@ -31,6 +32,22 @@ function caretToEnd(cell: HTMLInputElement | null | undefined) {
   if (cell.selectionStart !== end || cell.selectionEnd !== end) {
     cell.setSelectionRange(end, end);
   }
+}
+
+/**
+ * Несколько букв разом в одну клетку — диктовка (микрофон на клавиатуре iPhone и Android,
+ * диктовка Mac и Windows) или подсказка клавиатуры. Курсор тогда остаётся в клетке, а клетка
+ * держит весь продиктованный текст: диктовка дописывает и исправляет его как в обычном поле,
+ * а буквы каждый раз заново раскладываются по клеткам начиная с этой.
+ */
+interface Dictation {
+  cell: number;
+  /** Что было в клетке до диктовки и осталось в начале текста. */
+  prefix: string;
+  /** Клетки до диктовки — от них считается раскладка, чтобы исправления не оставляли лишних букв. */
+  base: string[];
+  /** Текст в клетке целиком — как его видит клавиатура. */
+  text: string;
 }
 
 /** Промежуток между клетками и между словами, px. */
@@ -73,6 +90,10 @@ export function HintTemplate({
     const el = form.current;
     return () => holdKeyboard(el);
   }, []);
+  const [dictation, setDictation] = useState<Dictation | null>(null);
+  // Подсказка открыла букву — раскладка прежней диктовки больше не годится.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: только при смене шаблона
+  useEffect(() => setDictation(null), [mask]);
   const [marked, setMarked] = useState<ReadonlySet<number>>(new Set());
   useEffect(() => setMarked(new Set(wrong)), [wrong]);
   const unmark = (indices: readonly number[]) =>
@@ -143,7 +164,25 @@ export function HintTemplate({
     if (filled) onSubmit(templateAnswer(mask, values), values);
   };
 
-  const change = (i: number, raw: string) => {
+  const dictate = (d: Dictation, raw: string) => {
+    const said = raw.startsWith(d.prefix) ? raw.slice(d.prefix.length) : raw;
+    // Диктовка ставит заглавную букву и точку, а иногда пробел в начале — они не нужны.
+    const typed = typeInto(
+      mask,
+      d.base,
+      d.cell,
+      said.trimStart().toLowerCase(),
+    );
+    setValues(typed.values);
+    unmark(typed.values.flatMap((v, j) => (v !== values[j] ? [j] : [])));
+    setDictation({ ...d, text: raw });
+  };
+
+  const change = (i: number, raw: string, inputType?: string) => {
+    if (dictation?.cell === i) {
+      dictate(dictation, raw);
+      return;
+    }
     if (raw === "") {
       setValues((v) => v.map((x, j) => (j === i ? "" : x)));
       unmark([i]);
@@ -160,6 +199,20 @@ export function HintTemplate({
       old && raw.length > 1 && raw.startsWith(old)
         ? raw.slice(old.length)
         : raw;
+    if (text.trim().length > 1) {
+      // Журнал: как диктуют разные телефоны — чтобы чинить по фактам, а не наугад.
+      logEvent("dictation", { inputType, length: text.length });
+      dictate(
+        {
+          cell: i,
+          prefix: text === raw ? "" : old,
+          base: values.map((v, j) => (j === i ? "" : v)),
+          text: raw,
+        },
+        raw,
+      );
+      return;
+    }
     const typed = typeInto(mask, values, i, text);
     setValues(typed.values);
     unmark(typed.values.flatMap((v, j) => (v !== values[j] ? [j] : [])));
@@ -167,6 +220,8 @@ export function HintTemplate({
   };
 
   const keyDown = (i: number, e: KeyboardEvent<HTMLInputElement>) => {
+    // Во время диктовки клетка — обычное поле: стирание, пробел и стрелки работают как в нём.
+    if (dictation?.cell === i) return;
     if (e.key === "Backspace" && !values[i]) {
       e.preventDefault();
       const prev = prevSlot(mask, i);
@@ -189,36 +244,55 @@ export function HintTemplate({
 
   const cell = (i: number) => {
     if (isSlot(mask, i)) {
+      const dictating = dictation?.cell === i;
       return (
-        <input
-          key={i}
-          ref={(el) => {
-            cells.current[i] = el;
-          }}
-          value={values[i] ?? ""}
-          onChange={(e) => change(i, e.target.value)}
-          onKeyDown={(e) => keyDown(i, e)}
-          onFocus={(e) => {
-            focused.current = i;
-            caretToEnd(e.currentTarget);
-          }}
-          // Выделение в клетках бессмысленно (одна буква) и мешает — сразу схлопываем его.
-          onSelect={(e) => caretToEnd(e.currentTarget)}
-          style={cellStyle}
-          className={cn(
-            "h-11 select-none rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center caret-transparent outline-none [-webkit-touch-callout:none] selection:bg-transparent focus:border-b-4 focus:border-primary focus:bg-primary/25 focus:ring-2 focus:ring-primary focus:ring-inset",
-            marked.has(i) &&
-              "border-destructive text-destructive focus:border-destructive focus:bg-destructive/15 focus:ring-destructive",
+        // Обёртка — чтобы во время диктовки показать поверх клетки её букву, а не весь текст.
+        <span key={i} className="relative inline-flex" style={cellStyle}>
+          <input
+            ref={(el) => {
+              cells.current[i] = el;
+            }}
+            value={dictating ? dictation.text : (values[i] ?? "")}
+            onChange={(e) =>
+              change(i, e.target.value, (e.nativeEvent as InputEvent).inputType)
+            }
+            onKeyDown={(e) => keyDown(i, e)}
+            onFocus={(e) => {
+              focused.current = i;
+              caretToEnd(e.currentTarget);
+            }}
+            onBlur={() => {
+              if (dictating) setDictation(null);
+            }}
+            // Выделение в клетках бессмысленно (одна буква) и мешает — сразу схлопываем его.
+            // Во время диктовки не трогаем: клавиатура сама ставит курсор в продиктованном тексте.
+            onSelect={(e) => {
+              if (!dictating) caretToEnd(e.currentTarget);
+            }}
+            className={cn(
+              "h-11 w-full select-none rounded-t-sm border-foreground/40 border-b-2 bg-muted/40 p-0 text-center caret-transparent outline-none [-webkit-touch-callout:none] selection:bg-transparent focus:border-b-4 focus:border-primary focus:bg-primary/25 focus:ring-2 focus:ring-primary focus:ring-inset",
+              marked.has(i) &&
+                "border-destructive text-destructive focus:border-destructive focus:bg-destructive/15 focus:ring-destructive",
+              dictating && "text-transparent",
+            )}
+            aria-invalid={marked.has(i) || undefined}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            lang={lang}
+            enterKeyHint="go"
+            aria-label={`Буква ${i + 1}`}
+          />
+          {dictating && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 flex items-center justify-center"
+            >
+              {values[i]}
+            </span>
           )}
-          aria-invalid={marked.has(i) || undefined}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="none"
-          spellCheck={false}
-          lang={lang}
-          enterKeyHint="go"
-          aria-label={`Буква ${i + 1}`}
-        />
+        </span>
       );
     }
     return (
