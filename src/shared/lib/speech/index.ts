@@ -1,1 +1,6 @@
-export { canSpeak, speak } from "./speech.ts";
+export {
+  canSpeak,
+  prepareSpeech,
+  resetSpeechForTests,
+  speak,
+} from "./speech.ts";

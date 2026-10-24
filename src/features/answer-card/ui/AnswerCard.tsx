@@ -2,6 +2,7 @@ import {
   Copy,
   Lightbulb,
   ListChecks,
+  LoaderCircle,
   RectangleEllipsis,
   Volume2,
 } from "lucide-react";
@@ -119,15 +120,21 @@ function copyCard(card: DrillCard, expected: string) {
 
 /** Произнести слово голосом системы. */
 function SpeakButton({ text }: { text: string }) {
+  // Пока голос готовится, крутится индикатор: первое слово ждёт загрузки, а не запинается.
+  const [preparing, setPreparing] = useState(false);
   if (!canSpeak()) return null;
   return (
     <Button
       variant="outline"
       size="sm"
       aria-label="Произнести"
-      onClick={() => speak(text)}
+      aria-busy={preparing}
+      onClick={() => {
+        setPreparing(true);
+        speak(text).finally(() => setPreparing(false));
+      }}
     >
-      <Volume2 />
+      {preparing ? <LoaderCircle className="animate-spin" /> : <Volume2 />}
     </Button>
   );
 }
